@@ -1,5 +1,3 @@
-
-
 import OpenAI from "openai";
 import PDFDocument from "pdfkit";
 import { Resend } from "resend";
