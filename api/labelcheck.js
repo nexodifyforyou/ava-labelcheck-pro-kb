@@ -1,3 +1,5 @@
+export const config = { runtime: 'nodejs' };
+
 import OpenAI from "openai";
 import PDFDocument from "pdfkit";
 import { Resend } from "resend";
@@ -136,24 +138,32 @@ export default async function handler(req, res) {
     const pdfBuffer = await buildPdf({ report, company_name, product_name, shipping_scope });
     const pdf_base64 = pdfBuffer.toString("base64");
 
-    let email_status = "skipped";
-    if (process.env.RESEND_API_KEY) {
-      try {
-        await resend.emails.send({
-          from: "AVA LabelCheck <onboarding@resend.dev>",
-          to: company_email,
-          subject: `AVA LabelCheck Report — ${product_name || "Your Product"}`,
-          html: `<p>Hello ${company_name || ""},</p><p>Attached is your preliminary compliance report for <strong>${product_name || "your product"}</strong>.</p><p>Best,<br/>AVA LabelCheck</p>`,
-          attachments: [{ filename: "AVA_LabelCheck_Report.pdf", content: pdf_base64, contentType: "application/pdf" }]
-        });
-        email_status = "sent";
-      } catch (e) {
-        email_status = "failed: " + (e?.message || e);
-      }
-    }
+  let email_status = "skipped";
+if (process.env.RESEND_API_KEY) {
+  try {
+    // Convert base64 PDF into a Buffer for Resend
+    const pdfBufferForEmail = Buffer.from(pdf_base64, "base64");
 
-    return res.status(200).json({ report, pdf_base64, email_status });
-  } catch (err) {
-    return res.status(500).json({ error: err?.message || String(err) });
+    await resend.emails.send({
+      from: "AVA LabelCheck <onboarding@resend.dev>", // good for testing
+      to: company_email,
+      subject: `AVA LabelCheck Report — ${product_name || "Your Product"}`,
+      html: `<p>Hello ${company_name || ""},</p>
+             <p>Attached is your preliminary compliance report for
+             <strong>${product_name || "your product"}</strong>.</p>
+             <p>Best,<br/>AVA LabelCheck</p>`,
+      attachments: [
+        {
+          filename: "AVA_LabelCheck_Report.pdf",
+          content: pdfBufferForEmail,               // <-- Buffer, not base64 string
+          contentType: "application/pdf"
+        }
+      ]
+    });
+    email_status = "sent";
+  } catch (e) {
+    email_status = "failed: " + (e?.message || e);
   }
 }
+
+return res.status(200).json({ report, pdf_base64, email_status });
