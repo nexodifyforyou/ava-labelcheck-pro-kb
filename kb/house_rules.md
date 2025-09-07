@@ -1,0 +1,11 @@
+# AVA House Rules (always apply)
+- Italy must include Italian language.
+- Units: g/kg (solids), ml/l (liquids). Avoid imperial.
+- Allergens (Annex II) emphasised (e.g., **bold**). If missing → HIGH.
+- QUID shown next to ingredient when highlighted (e.g., ceci (60%)). If missing → HIGH.
+- Correct “use by” vs “best before”; add storage after opening when needed.
+- Business operator: name + EU postal address; if non-EU, show EU importer.
+- Nutrition per 100 g/ml; energy in kJ AND kcal; legal order.
+- Legibility: x-height ≥ 1.2 mm; if unknown, mark unknown.
+- Claims must be permitted/substantiated; unclear → MEDIUM.
+- Honey: country(ies) of origin / blend wording. Olive oil: category + origin.
