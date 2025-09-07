@@ -101,14 +101,33 @@
     const form = document.getElementById('f');
     const out = document.getElementById('out');
 
+    // Resize to <=1600px, JPEG quality 0.85 to keep payload small
     async function fileToDataUrl(file) {
       if (!file) return null;
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
+      const img = await new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => {
+          const i = new Image();
+          i.onload = () => resolve(i);
+          i.onerror = reject;
+          i.src = fr.result;
+        };
+        fr.onerror = reject;
+        fr.readAsDataURL(file);
       });
+      const maxDim = 1600;
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        const scale = Math.min(maxDim / width, maxDim / height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      return canvas.toDataURL('image/jpeg', 0.85);
     }
 
     form.addEventListener('submit', async (e) => {
@@ -130,7 +149,11 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        const data = await res.json();
+
+        const raw = await res.text(); // support non-JSON errors
+        let data;
+        try { data = JSON.parse(raw); }
+        catch { out.textContent = 'Server error:\n' + raw; return; }
 
         if (data.error) throw new Error(data.error);
 
@@ -148,11 +171,10 @@
           a.href = 'data:application/pdf;base64,' + data.pdf_base64;
           a.download = 'AVA_LabelCheck_Report.pdf';
           a.textContent = 'Download PDF Report';
-          html += '<br>';
-          const line = document.createElement('div');
-          line.innerHTML = html;
+          const wrap = document.createElement('div');
+          wrap.innerHTML = html;
           out.innerHTML = '';
-          out.appendChild(line);
+          out.appendChild(wrap);
           out.appendChild(a);
         } else {
           out.innerHTML = html;
