@@ -53,7 +53,7 @@ async function analyzeLabel({ fields, label_image_data_url }) {
   ];
 
   const resp = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: "gpt-4o",
     messages,
     temperature: 0
   });
