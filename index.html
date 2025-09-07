@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AVA LabelCheck — Client Intake</title>
+  <style>
+    body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; background: #0b1020; color: #e7eefc; }
+    .wrap { max-width: 980px; margin: 0 auto; }
+    h1 { font-size: 28px; margin-bottom: 8px; }
+    p.muted { color: #a8b3cf; margin-top: 0; }
+    form { display: grid; gap: 12px; background: #121833; padding: 16px; border-radius: 16px; border: 1px solid #1e2a5a; }
+    label { font-weight: 600; font-size: 14px; }
+    input, textarea, select { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #2a3975; background: #0f1530; color: #e7eefc; }
+    input[type="file"] { padding: 8px; }
+    button { padding: 12px 16px; border: 0; border-radius: 12px; background: #4f7dff; color: white; font-weight: 700; cursor: pointer; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .result { margin-top: 16px; background: #0f1530; border: 1px solid #2a3975; padding: 16px; border-radius: 16px; white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .badge { display: inline-block; padding: 4px 8px; border-radius: 999px; font-size: 12px; margin-right: 6px; }
+    .pass { background: #0c3; color: #002; }
+    .caution { background: #fc0; color: #220; }
+    .fail { background: #f44; color: #200; }
+    small { color:#9aa7c7; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>AVA LabelCheck — Client Intake (MVP)</h1>
+    <p class="muted">Upload your label image (JPG/PNG) and enter details. We'll extract data, run EU 1169/2011 checks + your house rules, generate a stamped PDF, and email it to you.</p>
+
+    <form id="f">
+      <div class="row">
+        <div>
+          <label>Product name</label>
+          <input name="product_name" placeholder="Pasta di Ceci" required />
+        </div>
+        <div>
+          <label>Company name</label>
+          <input name="company_name" placeholder="ACME Foods S.r.l." required />
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Company email (report will be sent here)</label>
+          <input name="company_email" type="email" placeholder="qa@acmefoods.it" required />
+        </div>
+        <div>
+          <label>Country of sale</label>
+          <input name="country_of_sale" placeholder="Italy" required />
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Languages on label (ISO codes, comma separated)</label>
+          <input name="languages_provided" placeholder="it,en" />
+        </div>
+        <div>
+          <label>Shipping scope</label>
+          <select name="shipping_scope">
+            <option value="local">Local / Domestic</option>
+            <option value="eu">EU Single Market</option>
+            <option value="global">Global</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Product category</label>
+          <select name="product_category">
+            <option value="general">General</option>
+            <option value="beverage">Beverage</option>
+            <option value="chocolate">Chocolate & Cocoa</option>
+            <option value="meat">Meat</option>
+            <option value="fish">Fish</option>
+            <option value="supplement">Food Supplement</option>
+            <option value="baby">Infant / Baby Food</option>
+            <option value="honey">Honey</option>
+            <option value="olive_oil">Olive Oil</option>
+          </select>
+        </div>
+        <div>
+          <label>Label image (JPG/PNG)</label>
+          <input name="label_image" type="file" accept="image/*" required />
+          <small>Large images may take longer. Clear, straight photos work best.</small>
+        </div>
+      </div>
+
+      <label>Optional: paste extra rules or buyer requirements (used only for this one report)</label>
+      <textarea name="reference_docs_text" rows="4" placeholder="Paste internal spec, claims substantiation, or buyer’s requirements..."></textarea>
+
+      <button type="submit">Generate Compliance Report</button>
+    </form>
+
+    <div id="out" class="result" style="display:none"></div>
+  </div>
+
+  <script type="module">
+    const form = document.getElementById('f');
+    const out = document.getElementById('out');
+
+    async function fileToDataUrl(file) {
+      if (!file) return null;
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      const payload = Object.fromEntries(fd.entries());
+      payload.languages_provided = (payload.languages_provided || '')
+        .split(',').map(s => s.trim()).filter(Boolean);
+
+      const imgFile = fd.get('label_image');
+      payload.label_image_data_url = await fileToDataUrl(imgFile);
+
+      out.style.display = 'block';
+      out.textContent = 'Processing…';
+
+      try {
+        const res = await fetch('/api/labelcheck', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+
+        if (data.error) throw new Error(data.error);
+
+        const status = data.report?.overall_status || 'caution';
+        const badge = `<span class="badge ${status}">${status.toUpperCase()}</span>`;
+        const head = `${badge} ${data.report?.summary || ''}`;
+
+        let html = `${head}<br><br><strong>Product</strong><br><pre>${JSON.stringify(data.report?.product, null, 2)}</pre><br><strong>Checks</strong><br>`;
+        for (const c of (data.report?.checks || [])) {
+          html += `• [${c.status?.toUpperCase()} | ${c.severity}] ${c.title}<br>&nbsp;&nbsp;- ${c.detail}<br>&nbsp;&nbsp;→ Fix: ${c.fix}<br><br>`;
+        }
+
+        if (data.pdf_base64) {
+          const a = document.createElement('a');
+          a.href = 'data:application/pdf;base64,' + data.pdf_base64;
+          a.download = 'AVA_LabelCheck_Report.pdf';
+          a.textContent = 'Download PDF Report';
+          html += '<br>';
+          const line = document.createElement('div');
+          line.innerHTML = html;
+          out.innerHTML = '';
+          out.appendChild(line);
+          out.appendChild(a);
+        } else {
+          out.innerHTML = html;
+        }
+      } catch (err) {
+        out.textContent = 'Error: ' + (err?.message || err);
+      }
+    });
+  </script>
+</body>
+</html>

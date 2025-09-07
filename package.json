@@ -1,0 +1,14 @@
+{
+  "name": "ava-labelcheck-pro-kb",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev",
+    "start": "vercel dev"
+  },
+  "dependencies": {
+    "openai": "^4.58.1",
+    "pdfkit": "^0.15.0",
+    "resend": "^4.0.0"
+  }
+}
