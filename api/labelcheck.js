@@ -133,61 +133,125 @@ async function analyzeLabel({ fields, label_image_data_url }) {
 // ---- PDF builder ----
 function buildPdf({ report, company_name, product_name, shipping_scope }) {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ margin: 50 });
+    const doc = new PDFDocument({ margin: 56 }); // bigger, nicer margin
     const chunks = [];
-    doc.on("data", c => chunks.push(c));
+    doc.on("data", (c) => chunks.push(c));
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
+
+    const pageW = doc.page.width;
+    const pageH = doc.page.height;
+    const M = doc.page.margins.left;
+    const W = pageW - M * 2;
 
     const today = new Date().toISOString().split("T")[0];
     const reportId = "AVA-" + today.replace(/-/g,"") + "-" + Math.floor(Math.random()*1e6).toString().padStart(6,"0");
 
     // Header
-    doc.fillColor("#0b1020").fontSize(22).text("AVA LabelCheck — Compliance Assessment");
-    doc.moveDown(0.2);
-    doc.fillColor("#444").fontSize(10).text("Preliminary analysis based on EU 1169/2011 + AVA House Rules.");
-    doc.moveDown(0.6);
+    doc.font("Helvetica-Bold").fontSize(22).fillColor("#0b1020")
+       .text("AVA LabelCheck — Compliance Assessment", M, M, { width: W - 180 }); // leave room for stamp on the right
+    doc.moveDown(0.25);
+    doc.font("Helvetica").fontSize(10).fillColor("#666")
+       .text("Preliminary analysis based on EU 1169/2011 + AVA House Rules.", { width: W - 180 });
 
-    // Stamp
+    // Stamp (top-right)
+    const stamp = { x: M + W - 160, y: M - 8, w: 160, h: 64 };
     doc.save();
-    doc.rect(400, 40, 160, 60).strokeColor("#4f7dff").lineWidth(2).stroke();
-    doc.fillColor("#4f7dff").fontSize(12).text("AVA VERIFIED", 410, 55);
-    doc.fillColor("#888").fontSize(9).text(today, 410, 72);
+    doc.lineWidth(1.5).strokeColor("#4f7dff").roundedRect(stamp.x, stamp.y, stamp.w, stamp.h, 8).stroke();
+    doc.fillColor("#4f7dff").font("Helvetica-Bold").fontSize(12).text("AVA VERIFIED", stamp.x + 12, stamp.y + 12);
+    doc.fillColor("#888").font("Helvetica").fontSize(9).text(today, stamp.x + 12, stamp.y + 32);
     doc.restore();
 
-    // Meta
-    doc.moveDown(0.5).fillColor("#000").fontSize(12);
-    doc.text(`Report ID: ${reportId}`);
-    doc.text(`Company: ${company_name || "-"}`);
-    doc.text(`Product: ${product_name || "-"}`);
-    doc.text(`Shipping scope: ${shipping_scope || "-"}`);
-    doc.text(`Country of sale: ${report?.product?.country_of_sale || "-"}`);
-    doc.text(`Languages: ${(report?.product?.languages_provided || []).join(", ") || "-"}`);
+    // Ensure following content starts **below** the stamp (prevent overlap)
+    const belowStampY = stamp.y + stamp.h + 12;
+    if (doc.y < belowStampY) doc.y = belowStampY;
 
-    // Summary
+    // Meta block
+    const metaTop = doc.y;
+    doc.save();
+    doc.fillColor("#111").font("Helvetica-Bold").fontSize(12).text("Report Details", M, metaTop);
+    doc.moveDown(0.4);
+    const kv = (k, v) => {
+      doc.font("Helvetica-Bold").fillColor("#111").text(k + ": ", { continued: true });
+      doc.font("Helvetica").fillColor("#222").text(v || "-");
+    };
+    kv("Report ID", reportId);
+    kv("Company", company_name || "-");
+    kv("Product", product_name || "-");
+    kv("Shipping scope", shipping_scope || "-");
+    kv("Country of sale", report?.product?.country_of_sale || "-");
+    kv("Languages", (report?.product?.languages_provided || []).join(", ") || "-");
+    doc.restore();
+
+    // Overall status badge
     doc.moveDown(0.6);
-    const status = (report?.overall_status || "caution").toUpperCase();
-    doc.fillColor("#000").fontSize(14).text(`Overall: ${status}`);
-    doc.moveDown(0.2);
-    doc.fillColor("#333").fontSize(11).text(report?.summary || "-");
+    const overall = (report?.overall_status || "caution").toLowerCase();
+    const badgeText = overall.toUpperCase();
+    const badgeColor = overall === "pass" ? "#10b981" : overall === "fail" ? "#ef4444" : "#f59e0b";
+    const badgeW = doc.widthOfString(badgeText) + 16;
+    const badgeH = 18;
+    const xBadge = M;
+    const yBadge = doc.y;
+
+    doc.save();
+    doc.fillColor(badgeColor).roundedRect(xBadge, yBadge, badgeW, badgeH, 6).fill();
+    doc.fillColor("#fff").font("Helvetica-Bold").fontSize(10)
+       .text(badgeText, xBadge + 8, yBadge + 4);
+    doc.restore();
+
+    // Summary next to/under badge
+    doc.moveDown(overall === "pass" ? 0.9 : 1.1);
+    doc.font("Helvetica").fontSize(11).fillColor("#333")
+       .text(report?.summary || "-", M, doc.y, { width: W });
+
+    // Divider
+    doc.moveDown(0.6);
+    doc.lineWidth(0.6).strokeColor("#e5e7eb").moveTo(M, doc.y).lineTo(M + W, doc.y).stroke();
+    doc.moveDown(0.4);
 
     // Checks
-    doc.moveDown(0.6);
-    doc.fillColor("#000").fontSize(13).text("Checks", { underline: true });
-    doc.moveDown(0.3);
-    for (const c of report?.checks || []) {
-      doc.fillColor("#111").fontSize(12).text(`• ${c.title} [${(c.status || "").toUpperCase()} | ${c.severity}]`);
-      doc.fillColor("#444").fontSize(10).text(`Detail: ${c.detail || "-"}`);
-      doc.fillColor("#0b3d02").fontSize(10).text(`Fix: ${c.fix || "-"}`);
-      doc.moveDown(0.3);
-    }
+    doc.font("Helvetica-Bold").fontSize(13).fillColor("#0b1020").text("Checks");
+    doc.moveDown(0.2);
+
+    const drawCheck = (c) => {
+      const title = c.title || "Untitled check";
+      const statusText = (c.status || "").toUpperCase();
+      const sev = (c.severity || "").toLowerCase();
+      const tagColor = c.status === "ok" ? "#10b981" : c.status === "missing" ? "#ef4444" : "#f59e0b";
+
+      // Title + status tag
+      const yStart = doc.y + 4;
+      doc.fillColor("#111").font("Helvetica-Bold").fontSize(12).text("• " + title, M, doc.y, { continued: true });
+      const tagW = doc.widthOfString(`  [${statusText} | ${sev}]`) + 10;
+      doc.fillColor(tagColor).font("Helvetica-Bold").fontSize(9)
+         .text(`  [${statusText} | ${sev}]`, { continued: false });
+
+      // Detail
+      doc.moveDown(0.15);
+      if (c.detail) {
+        doc.font("Helvetica").fontSize(10).fillColor("#444")
+           .text("Detail: " + c.detail, M + 14, doc.y, { width: W - 14 });
+      }
+
+      // Fix
+      if (c.fix) {
+        doc.moveDown(0.1);
+        doc.font("Helvetica").fontSize(10).fillColor("#0b3d02")
+           .text("Fix: " + c.fix, M + 14, doc.y, { width: W - 14 });
+      }
+
+      // Row divider
+      doc.moveDown(0.35);
+      doc.lineWidth(0.4).strokeColor("#eef2f7").moveTo(M, doc.y).lineTo(M + W, doc.y).stroke();
+      doc.moveDown(0.25);
+    };
+
+    for (const c of (report?.checks || [])) drawCheck(c);
 
     // Footer
-    doc.moveDown(0.5);
-    doc.fillColor("#777").fontSize(8).text(
-      "Disclaimer: Automated triage. For legal compliance, consult qualified professionals. © AVA LabelCheck",
-      { align: "center" }
-    );
+    doc.moveDown(0.6);
+    doc.font("Helvetica").fontSize(8).fillColor("#7a7a7a")
+       .text("Disclaimer: Automated triage. For legal compliance, consult qualified professionals. © AVA LabelCheck", M, doc.y, { width: W, align: "center" });
 
     doc.end();
   });
