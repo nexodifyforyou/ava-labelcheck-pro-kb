@@ -1,4 +1,4 @@
-// Force Node runtime for this function
+// Run this function on Node (needed for pdfkit)
 export const config = { runtime: 'nodejs' };
 
 import OpenAI from "openai";
@@ -18,25 +18,84 @@ const kbPath = path.join(__dirname, "..", "kb", "house_rules.md");
 let KB_TEXT = "";
 try { KB_TEXT = fs.readFileSync(kbPath, "utf-8"); } catch { KB_TEXT = ""; }
 
-// ---- System prompt ----
-const SYSTEM_PROMPT = `You are AVA LabelCheck, an EU food label compliance assistant focused on Regulation (EU) No 1169/2011 and related guidance.
-Read the label image (OCR) + user fields + house rules, then output STRICT JSON.
+// ---- System prompt (plain string; no backticks to avoid template issues) ----
+const SYSTEM_PROMPT =
+  "You are AVA LabelCheck, an EU food label compliance assistant focused on Regulation (EU) No 1169/2011 and related guidance. " +
+  "Read the label image (OCR) + user fields + house rules, then output STRICT JSON. " +
+  "JSON schema keys: version, product, overall_status, summary, checks. " +
+  "Each check: { id, title, status: ok|issue|missing, severity: low|medium|high, detail, fix }. " +
+  "Rules: Be precise and practical. Do not invent facts—mark missing/unclear. Keep fixes actionable. " +
+  "Scope: packaged foods B2C in EU. Check core EU 1169/2011 items (name, ingredients, allergens/Annex II emphasis, QUID, " +
+  "net qty units, date marking 'use by' vs 'best before', storage/use, business name+EU postal address, nutrition (per 100 g/ml), " +
+  "legibility (assume unknown if not given), language of sale country). If outside scope, say so in summary.";
 
-JSON schema keys: version, product, overall_status, summary, checks.
-Each check: { id, title, status: ok|issue|missing, severity: low|medium|high, detail, fix }.
-
-Rules: Be precise and practical. Do not invent facts—mark missing/unclear. Keep fixes actionable.
-Scope: packaged foods B2C in EU. Check core EU 1169/2011 items (name, ingredients, allergens/Annex II emphasis, QUID, net qty units,
-date marking “use by” vs “best before”, storage/use, business name+EU postal address, nutrition (per 100 g/ml), legibility (assume unknown if not given),
-language of sale country). If outside scope, say so in summary.`;
-
-// ---- Helpers ----
+// ---- Small helper for JSON responses ----
 function sendJson(res, status, obj) {
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json");
   res.end(JSON.stringify(obj));
 }
 
+// ---- Strict schema helpers (ensure deterministic output) ----
+const REQUIRED_CHECKS = [
+  ["name_of_food","Name of food"],
+  ["ingredients","Ingredient list"],
+  ["allergens","Allergen declaration"],
+  ["quid","QUID"],
+  ["net_qty","Net quantity"],
+  ["date_marking","Date marking"],
+  ["storage_use","Storage/conditions of use"],
+  ["business_address","Business name & EU address"],
+  ["nutrition","Nutrition declaration"],
+  ["language","Language compliance"],
+  ["claims","Claims (if any)"]
+];
+
+function normalizeReport(raw, fields) {
+  const r = raw && typeof raw === "object" ? raw : {};
+  const product = r.product || {};
+  const checksById = new Map((r.checks || []).map(c => [c.id, c]));
+
+  const checks = REQUIRED_CHECKS.map(([id, title]) => {
+    const c = checksById.get(id) || {};
+    const status = (c.status || "missing").toLowerCase();
+    const severity =
+      c.severity ? c.severity.toLowerCase() :
+      status === "missing" ? "high" :
+      status === "issue" ? "medium" : "low";
+
+    return {
+      id,
+      title,
+      status: ["ok","issue","missing"].includes(status) ? status : "missing",
+      severity: ["low","medium","high"].includes(severity) ? severity : "medium",
+      detail: c.detail || "",
+      fix: c.fix || ""
+    };
+  });
+
+  const hasHigh = checks.some(c => c.status !== "ok" && c.severity === "high");
+  const hasMedium = checks.some(c => c.status !== "ok" && c.severity === "medium");
+  const overall_status = hasHigh ? "fail" : hasMedium ? "caution" : "pass";
+
+  const finalProduct = {
+    name: product.name || fields.product_name || "",
+    country_of_sale: product.country_of_sale || fields.country_of_sale || "",
+    languages_provided: Array.isArray(product.languages_provided)
+      ? product.languages_provided
+      : (fields.languages_provided || [])
+  };
+
+  return {
+    version: "1.0",
+    product: finalProduct,
+    overall_status,
+    summary: r.summary || (overall_status === "pass" ? "All core items present." : "Issues found—see fixes."),
+    checks
+  };
+}
+
+// ---- Model call (OCR + reasoning) ----
 async function analyzeLabel({ fields, label_image_data_url }) {
   const messages = [
     { role: "system", content: SYSTEM_PROMPT },
@@ -53,6 +112,7 @@ async function analyzeLabel({ fields, label_image_data_url }) {
   ];
 
   const resp = await openai.chat.completions.create({
+    // stronger OCR + reasoning than 4o-mini
     model: "gpt-4o",
     messages,
     temperature: 0
@@ -66,25 +126,21 @@ async function analyzeLabel({ fields, label_image_data_url }) {
   try {
     return JSON.parse(text);
   } catch {
-    return {
-      version: "1.0",
-      product: {},
-      overall_status: "caution",
-      summary: "Parsing error; partial output.",
-      checks: []
-    };
+    return { version: "1.0", product: {}, overall_status: "caution", summary: "Parsing error; partial output.", checks: [] };
   }
 }
 
+// ---- PDF builder ----
 function buildPdf({ report, company_name, product_name, shipping_scope }) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 50 });
     const chunks = [];
-    doc.on("data", (c) => chunks.push(c));
+    doc.on("data", c => chunks.push(c));
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 
     const today = new Date().toISOString().split("T")[0];
+    const reportId = "AVA-" + today.replace(/-/g,"") + "-" + Math.floor(Math.random()*1e6).toString().padStart(6,"0");
 
     // Header
     doc.fillColor("#0b1020").fontSize(22).text("AVA LabelCheck — Compliance Assessment");
@@ -101,6 +157,7 @@ function buildPdf({ report, company_name, product_name, shipping_scope }) {
 
     // Meta
     doc.moveDown(0.5).fillColor("#000").fontSize(12);
+    doc.text(`Report ID: ${reportId}`);
     doc.text(`Company: ${company_name || "-"}`);
     doc.text(`Product: ${product_name || "-"}`);
     doc.text(`Shipping scope: ${shipping_scope || "-"}`);
@@ -145,13 +202,10 @@ export default async function handler(req, res) {
 
     const body = await new Promise((resolve, reject) => {
       let data = "";
-      req.on("data", (c) => (data += c));
+      req.on("data", c => (data += c));
       req.on("end", () => {
-        try {
-          resolve(JSON.parse(data || "{}"));
-        } catch (e) {
-          reject(e);
-        }
+        try { resolve(JSON.parse(data || "{}")); }
+        catch (e) { reject(e); }
       });
       req.on("error", reject);
     });
@@ -172,20 +226,15 @@ export default async function handler(req, res) {
     if (!company_email) return sendJson(res, 400, { error: "company_email is required" });
 
     const fields = {
-      product_name,
-      company_name,
-      company_email,
-      country_of_sale,
-      languages_provided,
-      shipping_scope,
-      product_category,
-      reference_docs_text
+      product_name, company_name, company_email, country_of_sale,
+      languages_provided, shipping_scope, product_category, reference_docs_text
     };
 
-    // Analyze (OCR + compliance)
-    const report = await analyzeLabel({ fields, label_image_data_url });
+    // Model → normalize
+    const rawReport = await analyzeLabel({ fields, label_image_data_url });
+    const report = normalizeReport(rawReport, fields);
 
-    // Build PDF and base64 for UI + email
+    // PDF
     const pdfBuffer = await buildPdf({ report, company_name, product_name, shipping_scope });
     const pdf_base64 = pdfBuffer.toString("base64");
 
@@ -198,15 +247,12 @@ export default async function handler(req, res) {
           from: "AVA LabelCheck <onboarding@resend.dev>",
           to: company_email,
           subject: `AVA LabelCheck Report — ${product_name || "Your Product"}`,
-          html: `<p>Hello ${company_name || ""},</p>
-                 <p>Attached is your preliminary compliance report for <strong>${product_name || "your product"}</strong>.</p>
-                 <p>Best,<br/>AVA LabelCheck</p>`,
-          attachments: [
-            {
-              filename: "AVA_LabelCheck_Report.pdf",
-              content: pdfBufferForEmail,
-              contentType: "application/pdf"
-            }
+          html:
+            `<p>Hello ${company_name || ""},</p>` +
+            `<p>Attached is your preliminary compliance report for <strong>${product_name || "your product"}</strong>.</p>` +
+            `<p>Best,<br/>AVA LabelCheck</p>`,
+        attachments: [
+            { filename: "AVA_LabelCheck_Report.pdf", content: pdfBufferForEmail, contentType: "application/pdf" }
           ]
         });
         email_status = "sent";
