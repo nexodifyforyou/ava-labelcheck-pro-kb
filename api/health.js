@@ -1,7 +1,8 @@
-export const config = { runtime: 'nodejs' };
+export const config = { runtime: 'edge' };
 
-export default async function handler(req, res) {
-  res.statusCode = 200;
-  res.setHeader('Content-Type', 'application/json');
-  res.end(JSON.stringify({ ok: true, ts: new Date().toISOString() }));
+export default async function handler(req) {
+  return new Response(
+    JSON.stringify({ ok: true, ts: new Date().toISOString() }),
+    { headers: { 'content-type': 'application/json' } }
+  );
 }
