@@ -142,7 +142,7 @@ export default async function handler(req, res) {
     if (process.env.RESEND_API_KEY) {
       try {
         await resend.emails.send({
-          from: "AVA LabelCheck <reports@ava.onresend.com>",
+          from: "AVA LabelCheck <onboarding@resend.dev>",
           to: company_email,
           subject: `AVA LabelCheck Report — ${product_name || "Your Product"}`,
           html: `<p>Hello ${company_name || ""},</p><p>Attached is your preliminary compliance report for <strong>${product_name || "your product"}</strong>.</p><p>Best,<br/>AVA LabelCheck</p>`,
