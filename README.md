@@ -1,3 +1,4 @@
+
 # AVA LabelCheck — PRO + Knowledge Base
 
 Upload label image → OCR + EU 1169/2011 + House Rules → JSON report → stamped PDF → optional email.
