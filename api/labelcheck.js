@@ -1,4 +1,4 @@
-export const config = { runtime: 'nodejs18.x' };
+export const config = { runtime: 'nodejs' };
 
 import OpenAI from "openai";
 import PDFDocument from "pdfkit";
