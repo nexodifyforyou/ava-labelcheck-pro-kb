@@ -1,4 +1,4 @@
-// ========= BRAND / NAME =========
+// ========= BRAND / NAME ========
 // ***** CHANGE HERE: your public app name used in PDF & emails *****
 const APP_NAME = "LabelCheck"; // e.g., "LabelGuard", "Regulaid"
 // =================================
