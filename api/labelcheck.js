@@ -1,6 +1,6 @@
 // ========= BRAND / NAME =========
-// ***** CHANGE HERE: your public app name shown in PDF, emails, etc. *****
-const APP_NAME = "LabelCheck"; // e.g., "LabelGuard" or "Regulaid"
+// ***** CHANGE HERE: your public app name used in PDF & emails *****
+const APP_NAME = "LabelCheck"; // e.g., "LabelGuard", "Regulaid"
 // =================================
 
 export const config = { runtime: "nodejs" };
@@ -10,11 +10,11 @@ import PDFDocument from "pdfkit";
 import { Resend } from "resend";
 import fs from "fs";
 import path from "path";
-import url from "url";
+import { fileURLToPath } from "url";
 
 const LAYOUT_VERSION = "v3";
 
-// --- lazy OpenAI client so we error nicely if key missing ---
+// --- Lazy OpenAI client (clean error if key missing) ---
 let _openai = null;
 function getOpenAI() {
   const key = process.env.OPENAI_API_KEY;
@@ -26,7 +26,7 @@ function getOpenAI() {
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ---- Load House Rules (persistent KB) ----
-const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const kbPath = path.join(__dirname, "..", "kb", "house_rules.md");
 let KB_TEXT = "";
 try { KB_TEXT = fs.readFileSync(kbPath, "utf-8"); } catch { KB_TEXT = ""; }
@@ -157,6 +157,62 @@ async function analyzeLabel({ fields, label_image_data_url }) {
     summary: "Model call failed; returning minimal shell.",
     checks: REQUIRED_CHECKS.map(([id, title]) => ({ id, title, status: "missing", severity: "medium", detail: "", fix: "" }))
   };
+}
+
+// --- Recovery: focused extraction for name & ingredients ---
+async function recoverEssentials(label_image_data_url, fields) {
+  const messages = [
+    { role: "system", content:
+      "You extract ONLY if visible on the label image. Return JSON { name, ingredients_text }." },
+    { role: "user", content: [
+      { type: "text", text:
+        "Find the sales name/headline (front) or 'name of food'. Title-case it for output. " +
+        "Then find the ingredients list block. Look for words like: 'Ingredienti', 'Ingredients', 'Ingredientes', 'Ingrédients'. " +
+        "Return raw text with minimal cleanup." },
+      { type: "image_url", image_url: { url: label_image_data_url } },
+      { type: "text", text: "Return ONLY JSON { name, ingredients_text }." }
+    ]}
+  ];
+
+  try {
+    const resp = await getOpenAI().chat.completions.create({
+      model: "gpt-4o-mini",
+      messages,
+      temperature: 0
+    });
+    let txt = resp.choices?.[0]?.message?.content || "{}";
+    const s = txt.indexOf("{"), e = txt.lastIndexOf("}");
+    if (s >= 0 && e >= 0) txt = txt.slice(s, e + 1);
+    return JSON.parse(txt);
+  } catch (e) {
+    console.error("recoverEssentials:", e?.message || e);
+    return {};
+  }
+}
+
+function applyRecovered(report, recovered) {
+  const out = JSON.parse(JSON.stringify(report));
+  if (recovered.name && (!out.product.name || !out.product.name.trim())) {
+    out.product.name = recovered.name;
+  }
+  if (recovered.ingredients_text) {
+    const i = out.checks.findIndex(c => c.id === "ingredients");
+    if (i >= 0) {
+      if (out.checks[i].status === "missing") out.checks[i].status = "ok";
+      if (!out.checks[i].detail) {
+        const snip = recovered.ingredients_text.slice(0, 300) + (recovered.ingredients_text.length > 300 ? "…" : "");
+        out.checks[i].detail = "Detected list: " + snip;
+      }
+      if (!out.checks[i].fix) {
+        out.checks[i].fix = "Ensure allergens are emphasized (bold) and the list is in descending order by weight.";
+      }
+    }
+  }
+  // recompute overall deterministically
+  const hasHigh = out.checks.some(c => c.status !== "ok" && c.severity === "high");
+  const hasMedium = out.checks.some(c => c.status !== "ok" && c.severity === "medium");
+  out.overall_status = hasHigh ? "fail" : hasMedium ? "caution" : "pass";
+  return out;
 }
 
 // ---------- PDF (layout v3: tidy, non-overlapping, readable) ----------
@@ -307,14 +363,18 @@ export default async function handler(req, res) {
       languages_provided, shipping_scope, product_category, reference_docs_text
     };
 
-    // Model → normalize
+    // First pass → normalize
     let rawReport;
     try {
       rawReport = await analyzeLabel({ fields, label_image_data_url });
     } catch (e) {
       return sendJson(res, 500, { error: "OpenAI setup error: " + (e?.message || String(e)) });
     }
-    const report = normalizeReport(rawReport, fields);
+    let report = normalizeReport(rawReport, fields);
+
+    // Second-pass recovery (name/ingredients) if the first pass missed them
+    const rec = await recoverEssentials(label_image_data_url, fields);
+    report = applyRecovered(report, rec);
 
     // PDF
     let pdf_base64 = null;
