@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AVA LabelCheck — Client Intake</title>
+  <!-- ***** CHANGE HERE: App name & subtitle shown in the UI ***** -->
+  <title><!-- APP_NAME -->LabelCheck<!-- /APP_NAME --> — Client Intake</title>
+  <!-- You can change "Client Intake" later; see the H1 below as well -->
   <style>
     body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; background: #0b1020; color: #e7eefc; }
     .wrap { max-width: 980px; margin: 0 auto; }
@@ -15,18 +17,20 @@
     input[type="file"] { padding: 8px; }
     button { padding: 12px 16px; border: 0; border-radius: 12px; background: #4f7dff; color: white; font-weight: 700; cursor: pointer; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .result { margin-top: 16px; background: #0f1530; border: 1px solid #2a3975; padding: 16px; border-radius: 16px; white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .result { margin-top: 16px; background: #0f1530; border: 1px solid #2a3975; padding: 16px; border-radius: 16px; white-space: normal; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    .pre { white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
     .badge { display: inline-block; padding: 4px 8px; border-radius: 999px; font-size: 12px; margin-right: 6px; }
-    .pass { background: #0c3; color: #002; }
-    .caution { background: #fc0; color: #220; }
-    .fail { background: #f44; color: #200; }
+    .pass { background: #10b981; color: #002; }
+    .caution { background: #f59e0b; color: #220; }
+    .fail { background: #ef4444; color: #200; }
     small { color:#9aa7c7; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>AVA LabelCheck — Client Intake (MVP)</h1>
-    <p class="muted">Upload your label image (JPG/PNG) and enter details. We'll extract data, run EU 1169/2011 checks + your house rules, generate a stamped PDF, and email it to you.</p>
+    <!-- ***** CHANGE HERE: page headline & subtitle ***** -->
+    <h1><!-- APP_NAME -->LabelCheck<!-- /APP_NAME --> — Client Intake</h1>
+    <p class="muted">Upload a JPG/PNG of your label. We’ll OCR it, apply EU 1169/2011 + your House Rules, generate a stamped PDF, and (optionally) email it.</p>
 
     <form id="f">
       <div class="row">
@@ -88,7 +92,7 @@
         </div>
       </div>
 
-      <label>Optional: paste extra rules or buyer requirements (used only for this one report)</label>
+      <label>Optional: extra rules or buyer requirements (used only for this report)</label>
       <textarea name="reference_docs_text" rows="4" placeholder="Paste internal spec, claims substantiation, or buyer’s requirements..."></textarea>
 
       <button type="submit">Generate Compliance Report</button>
@@ -98,6 +102,10 @@
   </div>
 
   <script type="module">
+    // ===== Small helper so you can rename once in <title>/<h1> =====
+    // (Edit the <!-- APP_NAME -->…<!-- /APP_NAME --> markers in HTML above)
+    // ===============================================================
+
     const form = document.getElementById('f');
     const out = document.getElementById('out');
 
@@ -161,23 +169,39 @@
         const badge = `<span class="badge ${status}">${status.toUpperCase()}</span>`;
         const head = `${badge} ${data.report?.summary || ''}`;
 
-        let html = `${head}<br><br><strong>Product</strong><br><pre>${JSON.stringify(data.report?.product, null, 2)}</pre><br><strong>Checks</strong><br>`;
+        // Pretty product view (no raw JSON)
+        const prod = data.report?.product || {};
+        const esc = (s) => (s==null ? "" : String(s)
+          .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"));
+        const prodHtml = `
+          <div style="margin-top:8px">
+            <strong>Product</strong>
+            <div style="margin-top:6px; padding:10px; border:1px solid #2a3975; border-radius:10px; background:#0b122c;">
+              <div><b>Name:</b> ${esc(prod.name) || "-"}</div>
+              <div><b>Country of sale:</b> ${esc(prod.country_of_sale) || "-"}</div>
+              <div><b>Languages:</b> ${(prod.languages_provided || []).join(", ") || "-"}</div>
+            </div>
+          </div>
+        `;
+
+        let html = `${head}${prodHtml}<br><strong>Checks</strong><br>`;
         for (const c of (data.report?.checks || [])) {
-          html += `• [${c.status?.toUpperCase()} | ${c.severity}] ${c.title}<br>&nbsp;&nbsp;- ${c.detail}<br>&nbsp;&nbsp;→ Fix: ${c.fix}<br><br>`;
+          html += `• [${(c.status||'').toUpperCase()} | ${c.severity}] ${c.title}<br>`;
+          if (c.detail) html += `<span class="pre">- ${c.detail}</span><br>`;
+          if (c.fix)    html += `→ <span class="pre">Fix: ${c.fix}</span><br>`;
+          html += `<br>`;
         }
+
+        out.innerHTML = html;
 
         if (data.pdf_base64) {
           const a = document.createElement('a');
           a.href = 'data:application/pdf;base64,' + data.pdf_base64;
-          a.download = 'AVA_LabelCheck_Report.pdf';
+          a.download = 'Compliance_Report.pdf';
           a.textContent = 'Download PDF Report';
-          const wrap = document.createElement('div');
-          wrap.innerHTML = html;
-          out.innerHTML = '';
-          out.appendChild(wrap);
+          a.style.display = 'inline-block';
+          a.style.marginTop = '6px';
           out.appendChild(a);
-        } else {
-          out.innerHTML = html;
         }
       } catch (err) {
         out.textContent = 'Error: ' + (err?.message || err);
