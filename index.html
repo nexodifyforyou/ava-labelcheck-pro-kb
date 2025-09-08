@@ -184,7 +184,21 @@
           </div>
         `;
 
-        let html = `${head}${prodHtml}<br><strong>Checks</strong><br>`;
+        const prod = data.report?.product || {};
+const esc = (s) => (s==null ? "" : String(s)
+  .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"));
+const prodHtml = `
+  <div style="margin-top:8px">
+    <strong>Product</strong>
+    <div style="margin-top:6px; padding:10px; border:1px solid #2a3975; border-radius:10px; background:#0b122c;">
+      <div><b>Name:</b> ${esc(prod.name) || "-"}</div>
+      <div><b>Country of sale:</b> ${esc(prod.country_of_sale) || "-"}</div>
+      <div><b>Languages:</b> ${(prod.languages_provided || []).join(", ") || "-"}</div>
+    </div>
+  </div>
+`;
+let html = `${head}${prodHtml}<br><strong>Checks</strong><br>`;
+
         for (const c of (data.report?.checks || [])) {
           html += `• [${(c.status||'').toUpperCase()} | ${c.severity}] ${c.title}<br>`;
           if (c.detail) html += `<span class="pre">- ${c.detail}</span><br>`;
