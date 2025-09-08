@@ -130,31 +130,30 @@ async function analyzeLabel({ fields, label_image_data_url }) {
   }
 }
 
-// ---- PDF builder ----
+// ---------- PDF (layout v3: tidy, non-overlapping, readable) ----------
 function buildPdf({ report, company_name, product_name, shipping_scope }) {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ margin: 56 }); // bigger, nicer margin
+    const doc = new PDFDocument({ margin: 56 }); // nicer margin
     const chunks = [];
     doc.on("data", (c) => chunks.push(c));
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 
     const pageW = doc.page.width;
-    const pageH = doc.page.height;
     const M = doc.page.margins.left;
     const W = pageW - M * 2;
 
     const today = new Date().toISOString().split("T")[0];
     const reportId = "AVA-" + today.replace(/-/g,"") + "-" + Math.floor(Math.random()*1e6).toString().padStart(6,"0");
 
-    // Header
+    // --- Header (title left, stamp right) ---
     doc.font("Helvetica-Bold").fontSize(22).fillColor("#0b1020")
-       .text("AVA LabelCheck — Compliance Assessment", M, M, { width: W - 180 }); // leave room for stamp on the right
+       .text("AVA LabelCheck — Compliance Assessment (v3)", M, M, { width: W - 180 });
     doc.moveDown(0.25);
     doc.font("Helvetica").fontSize(10).fillColor("#666")
        .text("Preliminary analysis based on EU 1169/2011 + AVA House Rules.", { width: W - 180 });
 
-    // Stamp (top-right)
+    // Stamp box (top-right)
     const stamp = { x: M + W - 160, y: M - 8, w: 160, h: 64 };
     doc.save();
     doc.lineWidth(1.5).strokeColor("#4f7dff").roundedRect(stamp.x, stamp.y, stamp.w, stamp.h, 8).stroke();
@@ -162,15 +161,12 @@ function buildPdf({ report, company_name, product_name, shipping_scope }) {
     doc.fillColor("#888").font("Helvetica").fontSize(9).text(today, stamp.x + 12, stamp.y + 32);
     doc.restore();
 
-    // Ensure following content starts **below** the stamp (prevent overlap)
+    // Push main content below the stamp (prevents overlap)
     const belowStampY = stamp.y + stamp.h + 12;
     if (doc.y < belowStampY) doc.y = belowStampY;
 
-    // Meta block
-    const metaTop = doc.y;
-    doc.save();
-    doc.fillColor("#111").font("Helvetica-Bold").fontSize(12).text("Report Details", M, metaTop);
-    doc.moveDown(0.4);
+    // --- Meta block ---
+    doc.fillColor("#111").font("Helvetica-Bold").fontSize(12).text("Report Details");
     const kv = (k, v) => {
       doc.font("Helvetica-Bold").fillColor("#111").text(k + ": ", { continued: true });
       doc.font("Helvetica").fillColor("#222").text(v || "-");
@@ -181,9 +177,8 @@ function buildPdf({ report, company_name, product_name, shipping_scope }) {
     kv("Shipping scope", shipping_scope || "-");
     kv("Country of sale", report?.product?.country_of_sale || "-");
     kv("Languages", (report?.product?.languages_provided || []).join(", ") || "-");
-    doc.restore();
 
-    // Overall status badge
+    // --- Overall status badge + summary ---
     doc.moveDown(0.6);
     const overall = (report?.overall_status || "caution").toLowerCase();
     const badgeText = overall.toUpperCase();
@@ -195,12 +190,10 @@ function buildPdf({ report, company_name, product_name, shipping_scope }) {
 
     doc.save();
     doc.fillColor(badgeColor).roundedRect(xBadge, yBadge, badgeW, badgeH, 6).fill();
-    doc.fillColor("#fff").font("Helvetica-Bold").fontSize(10)
-       .text(badgeText, xBadge + 8, yBadge + 4);
+    doc.fillColor("#fff").font("Helvetica-Bold").fontSize(10).text(badgeText, xBadge + 8, yBadge + 4);
     doc.restore();
 
-    // Summary next to/under badge
-    doc.moveDown(overall === "pass" ? 0.9 : 1.1);
+    doc.moveDown(1.1);
     doc.font("Helvetica").fontSize(11).fillColor("#333")
        .text(report?.summary || "-", M, doc.y, { width: W });
 
@@ -209,7 +202,7 @@ function buildPdf({ report, company_name, product_name, shipping_scope }) {
     doc.lineWidth(0.6).strokeColor("#e5e7eb").moveTo(M, doc.y).lineTo(M + W, doc.y).stroke();
     doc.moveDown(0.4);
 
-    // Checks
+    // --- Checks section ---
     doc.font("Helvetica-Bold").fontSize(13).fillColor("#0b1020").text("Checks");
     doc.moveDown(0.2);
 
@@ -219,21 +212,24 @@ function buildPdf({ report, company_name, product_name, shipping_scope }) {
       const sev = (c.severity || "").toLowerCase();
       const tagColor = c.status === "ok" ? "#10b981" : c.status === "missing" ? "#ef4444" : "#f59e0b";
 
-      // Title + status tag
-      const yStart = doc.y + 4;
-      doc.fillColor("#111").font("Helvetica-Bold").fontSize(12).text("• " + title, M, doc.y, { continued: true });
-      const tagW = doc.widthOfString(`  [${statusText} | ${sev}]`) + 10;
-      doc.fillColor(tagColor).font("Helvetica-Bold").fontSize(9)
-         .text(`  [${statusText} | ${sev}]`, { continued: false });
+      // Title
+      doc.fillColor("#111").font("Helvetica-Bold").fontSize(12).text("• " + title, M, doc.y);
 
-      // Detail
-      doc.moveDown(0.15);
+      // Status tag (right-aligned)
+      const yBefore = doc.y;
+      const tag = `[${statusText} | ${sev}]`;
+      const tagW = doc.widthOfString(tag) + 10;
+      doc.save();
+      doc.fillColor(tagColor).font("Helvetica-Bold").fontSize(9)
+         .text(tag, M, yBefore, { width: W, align: "right" });
+      doc.restore();
+
+      // Detail + Fix
       if (c.detail) {
+        doc.moveDown(0.15);
         doc.font("Helvetica").fontSize(10).fillColor("#444")
            .text("Detail: " + c.detail, M + 14, doc.y, { width: W - 14 });
       }
-
-      // Fix
       if (c.fix) {
         doc.moveDown(0.1);
         doc.font("Helvetica").fontSize(10).fillColor("#0b3d02")
@@ -248,14 +244,18 @@ function buildPdf({ report, company_name, product_name, shipping_scope }) {
 
     for (const c of (report?.checks || [])) drawCheck(c);
 
-    // Footer
+    // --- Footer ---
     doc.moveDown(0.6);
     doc.font("Helvetica").fontSize(8).fillColor("#7a7a7a")
-       .text("Disclaimer: Automated triage. For legal compliance, consult qualified professionals. © AVA LabelCheck", M, doc.y, { width: W, align: "center" });
+       .text(
+         "Disclaimer: Automated triage. For legal compliance, consult qualified professionals. © AVA LabelCheck",
+         M, doc.y, { width: W, align: "center" }
+       );
 
     doc.end();
   });
 }
+
 
 // ---- API handler ----
 export default async function handler(req, res) {
