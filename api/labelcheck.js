@@ -49,7 +49,7 @@ const SYSTEM_PROMPT =
   "net quantity with legal units; date marking ('use by' vs 'best before'); storage/conditions of use; FBO name + EU postal address (or EU importer); " +
   "nutrition declaration per 100 g/ml; language(s) appropriate to country_of_sale. If outside scope, say so in summary.";
 
-// ---- Default fix text for each check (used when model omits "fix") ----
+// ---- Default fix text (used only for issue/missing; NOT for OK) ----
 const DEFAULT_FIX = {
   name_of_food: "Include the legal/sales name on the front in a prominent position.",
   ingredients: "Provide a full ingredient list in descending order by weight.",
@@ -64,8 +64,10 @@ const DEFAULT_FIX = {
   claims: "Substantiate claims and ensure any nutrition/health claims meet EU rules."
 };
 function ensureFix(id, status, fix) {
+  // Show suggestions ONLY when status is 'issue' or 'missing'
+  if (status === "ok") return "";
   if (fix && String(fix).trim()) return fix;
-  return status === "ok" ? "No action needed." : (DEFAULT_FIX[id] || "Provide compliant text per EU 1169/2011.");
+  return DEFAULT_FIX[id] || "Provide compliant text per EU 1169/2011.";
 }
 
 // ---- helpers ----
@@ -75,7 +77,7 @@ function sendJson(res, status, obj) {
   res.end(JSON.stringify(obj));
 }
 
-// ---------- normalizeReport (bullet-proof + default fixes) ----------
+// ---------- normalizeReport (bullet-proof + default fixes for non-OK) ----------
 function normalizeReport(raw, fields) {
   const r = raw && typeof raw === "object" ? raw : {};
   const product = r.product || {};
@@ -235,6 +237,7 @@ function applyRecovered(report, recovered, fields) {
     c.status = "ok";
     c.severity = "low";
     if (snippet && !c.detail) c.detail = (id === "ingredients" ? "Detected list: " : "") + snippet.trim();
+    // ensureFix will clear fix for OK
     c.fix = ensureFix(id, c.status, c.fix);
   };
 
@@ -264,7 +267,7 @@ function applyRecovered(report, recovered, fields) {
     }
   }
 
-  // Ensure each check has a fix
+  // Ensure each check has appropriate fix policy (empty for OK)
   out.checks = out.checks.map(c => ({ ...c, fix: ensureFix(c.id, c.status, c.fix) }));
 
   // recompute overall
@@ -373,6 +376,7 @@ function buildPdf({ report, company_name, product_name, shipping_scope }) {
         doc.font("Helvetica").fontSize(10).fillColor("#444")
            .text("Detail: " + c.detail, M + 14, doc.y, { width: W - 14 });
       }
+      // Only print fix if present (we keep it empty for OK)
       if (c.fix) {
         doc.moveDown(0.1);
         doc.font("Helvetica").fontSize(10).fillColor("#0b3d02")
