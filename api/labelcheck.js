@@ -1,4 +1,4 @@
-// ========= BRAND / NAME ========
+// ========= BRAND / NAME =========
 // ***** CHANGE HERE: your public app name used in PDF & emails *****
 const APP_NAME = "LabelCheck"; // e.g., "LabelGuard", "Regulaid"
 // =================================
@@ -49,6 +49,25 @@ const SYSTEM_PROMPT =
   "net quantity with legal units; date marking ('use by' vs 'best before'); storage/conditions of use; FBO name + EU postal address (or EU importer); " +
   "nutrition declaration per 100 g/ml; language(s) appropriate to country_of_sale. If outside scope, say so in summary.";
 
+// ---- Default fix text for each check (used when model omits "fix") ----
+const DEFAULT_FIX = {
+  name_of_food: "Include the legal/sales name on the front in a prominent position.",
+  ingredients: "Provide a full ingredient list in descending order by weight.",
+  allergens: "Emphasize Annex II allergens within the ingredient list using bold (not ALL CAPS).",
+  quid: "Declare QUID (%) next to the highlighted ingredient in the name/presentation.",
+  net_qty: "Show net quantity with legal units (g/kg or ml/l).",
+  date_marking: "Use 'best before' (min. durability) or 'use by' (safety) with a clear date format.",
+  storage_use: "Add storage conditions and any specific conditions of use.",
+  business_address: "Provide the FBO name and an EU postal address (or EU importer if needed).",
+  nutrition: "Provide nutrition declaration per 100 g/ml (table or linear format).",
+  language: "Ensure mandatory particulars are in the language(s) of the country of sale.",
+  claims: "Substantiate claims and ensure any nutrition/health claims meet EU rules."
+};
+function ensureFix(id, status, fix) {
+  if (fix && String(fix).trim()) return fix;
+  return status === "ok" ? "No action needed." : (DEFAULT_FIX[id] || "Provide compliant text per EU 1169/2011.");
+}
+
 // ---- helpers ----
 function sendJson(res, status, obj) {
   res.statusCode = status;
@@ -56,34 +75,15 @@ function sendJson(res, status, obj) {
   res.end(JSON.stringify(obj));
 }
 
-const REQUIRED_CHECKS = [
-  ["name_of_food","Name of food"],
-  ["ingredients","Ingredient list"],
-  ["allergens","Allergen declaration"],
-  ["quid","QUID"],
-  ["net_qty","Net quantity"],
-  ["date_marking","Date marking"],
-  ["storage_use","Storage/conditions of use"],
-  ["business_address","Business name & EU address"],
-  ["nutrition","Nutrition declaration"],
-  ["language","Language compliance"],
-  ["claims","Claims (if any)"]
-];
-//normalizeReport
+// ---------- normalizeReport (bullet-proof + default fixes) ----------
 function normalizeReport(raw, fields) {
   const r = raw && typeof raw === "object" ? raw : {};
   const product = r.product || {};
 
   // Make sure checks is ALWAYS an array
   let rawChecks = [];
-  if (Array.isArray(r.checks)) {
-    rawChecks = r.checks;
-  } else if (r.checks && typeof r.checks === "object") {
-    // sometimes the model returns {id: {...}, id2: {...}}
-    rawChecks = Object.values(r.checks);
-  } // else leave as empty array
-
-  const checksById = new Map(rawChecks.map(c => [c.id, c]));
+  if (Array.isArray(r.checks)) rawChecks = r.checks;
+  else if (r.checks && typeof r.checks === "object") rawChecks = Object.values(r.checks);
 
   const REQUIRED_CHECKS = [
     ["name_of_food","Name of food"],
@@ -99,21 +99,21 @@ function normalizeReport(raw, fields) {
     ["claims","Claims (if any)"]
   ];
 
+  const checksById = new Map(rawChecks.map(c => [c.id, c]));
   const checks = REQUIRED_CHECKS.map(([id, title]) => {
     const c = checksById.get(id) || {};
     const status = (c.status || "missing").toLowerCase();
-    const severity =
+    const sev =
       c.severity ? String(c.severity).toLowerCase() :
       status === "missing" ? "high" :
       status === "issue" ? "medium" : "low";
-
     return {
       id,
       title,
       status: ["ok","issue","missing"].includes(status) ? status : "missing",
-      severity: ["low","medium","high"].includes(severity) ? severity : "medium",
+      severity: ["low","medium","high"].includes(sev) ? sev : "medium",
       detail: c.detail || "",
-      fix: c.fix || ""
+      fix: ensureFix(id, status, c.fix || "")
     };
   });
 
@@ -139,8 +139,7 @@ function normalizeReport(raw, fields) {
   };
 }
 
-
-// ---- Model call (with fallback) ----
+// ---------- Model call (with fallback) ----------
 async function analyzeLabel({ fields, label_image_data_url }) {
   const messages = [
     { role: "system", content: SYSTEM_PROMPT },
@@ -181,25 +180,29 @@ async function analyzeLabel({ fields, label_image_data_url }) {
     product: { name: fields.product_name || "", country_of_sale: fields.country_of_sale || "", languages_provided: fields.languages_provided || [] },
     overall_status: "caution",
     summary: "Model call failed; returning minimal shell.",
-    checks: REQUIRED_CHECKS.map(([id, title]) => ({ id, title, status: "missing", severity: "medium", detail: "", fix: "" }))
+    checks: REQUIRED_IDS.map(id => ({ id, title: id, status: "missing", severity: "medium", detail: "", fix: ensureFix(id, "missing", "") }))
   };
 }
 
-// --- Recovery: focused extraction for name & ingredients ---
+// ---------- Recovery: focused extraction for all core snippets ----------
 async function recoverEssentials(label_image_data_url, fields) {
   const messages = [
     { role: "system", content:
-      "You extract ONLY if visible on the label image. Return JSON { name, ingredients_text }." },
+      "You extract ONLY what is visible on the label image. Return JSON with exact keys: " +
+      "{ name, ingredients_text, net_qty_text, date_marking_text, nutrition_text, business_text, languages_detected }." },
     { role: "user", content: [
       { type: "text", text:
-        "Find the sales name/headline (front) or 'name of food'. Title-case it for output. " +
-        "Then find the ingredients list block. Look for words like: 'Ingredienti', 'Ingredients', 'Ingredientes', 'Ingrédients'. " +
-        "Return raw text with minimal cleanup." },
+        "1) Find the sales name/headline (front) or 'name of food'. Title-case it for 'name'.\n" +
+        "2) Find the ingredients list block. Look for words like: 'Ingredienti', 'Ingredients', 'Ingredientes', 'Ingrédients'. Put that paragraph into 'ingredients_text'.\n" +
+        "3) Find net quantity (e.g., '5 kg', '500 g', '750 ml'). Put exact text into 'net_qty_text'.\n" +
+        "4) Find date marking (e.g., 'Da consumarsi preferibilmente entro il: 25/10/2024' or 'Best before ...'). Put into 'date_marking_text'.\n" +
+        "5) Detect nutrition table/line (e.g., 'Valori nutrizionali / 100g', 'Energy 1254 kJ ...'). Put a short snippet into 'nutrition_text'.\n" +
+        "6) Find Business Operator / address block (company name + address). Put into 'business_text'.\n" +
+        "7) Guess languages on the label as ISO codes (e.g., ['it','de','en']) and put into 'languages_detected'." },
       { type: "image_url", image_url: { url: label_image_data_url } },
-      { type: "text", text: "Return ONLY JSON { name, ingredients_text }." }
+      { type: "text", text: "Return ONLY JSON with keys: { name, ingredients_text, net_qty_text, date_marking_text, nutrition_text, business_text, languages_detected }." }
     ]}
   ];
-
   try {
     const resp = await getOpenAI().chat.completions.create({
       model: "gpt-4o-mini",
@@ -209,32 +212,62 @@ async function recoverEssentials(label_image_data_url, fields) {
     let txt = resp.choices?.[0]?.message?.content || "{}";
     const s = txt.indexOf("{"), e = txt.lastIndexOf("}");
     if (s >= 0 && e >= 0) txt = txt.slice(s, e + 1);
-    return JSON.parse(txt);
+    const parsed = JSON.parse(txt);
+    if (!Array.isArray(parsed.languages_detected)) parsed.languages_detected = [];
+    return parsed;
   } catch (e) {
     console.error("recoverEssentials:", e?.message || e);
-    return {};
+    return { languages_detected: [] };
   }
 }
 
-function applyRecovered(report, recovered) {
+function applyRecovered(report, recovered, fields) {
   const out = JSON.parse(JSON.stringify(report));
+  // Fill product name if missing
   if (recovered.name && (!out.product.name || !out.product.name.trim())) {
     out.product.name = recovered.name;
   }
-  if (recovered.ingredients_text) {
-    const i = out.checks.findIndex(c => c.id === "ingredients");
-    if (i >= 0) {
-      if (out.checks[i].status === "missing") out.checks[i].status = "ok";
-      if (!out.checks[i].detail) {
-        const snip = recovered.ingredients_text.slice(0, 300) + (recovered.ingredients_text.length > 300 ? "…" : "");
-        out.checks[i].detail = "Detected list: " + snip;
+
+  // Helper to set a check OK with snippet
+  const okWith = (id, snippet) => {
+    const c = out.checks.find(ch => ch.id === id);
+    if (!c) return;
+    c.status = "ok";
+    c.severity = "low";
+    if (snippet && !c.detail) c.detail = (id === "ingredients" ? "Detected list: " : "") + snippet.trim();
+    c.fix = ensureFix(id, c.status, c.fix);
+  };
+
+  if (recovered.ingredients_text) okWith("ingredients", recovered.ingredients_text.slice(0, 400) + (recovered.ingredients_text?.length > 400 ? "…" : ""));
+  if (recovered.net_qty_text)    okWith("net_qty", recovered.net_qty_text);
+  if (recovered.date_marking_text) okWith("date_marking", recovered.date_marking_text);
+  if (recovered.nutrition_text)  okWith("nutrition", recovered.nutrition_text);
+  if (recovered.business_text)   okWith("business_address", recovered.business_text);
+
+  // Language compliance heuristic
+  const langCheck = out.checks.find(ch => ch.id === "language");
+  if (langCheck) {
+    const required = (fields.languages_provided || []).map(s => s.toLowerCase());
+    const detected = (recovered.languages_detected || []).map(s => s.toLowerCase());
+    if (required.length && detected.length) {
+      const overlap = required.some(code => detected.includes(code));
+      if (overlap) {
+        langCheck.status = "ok";
+        langCheck.severity = "low";
+        if (!langCheck.detail) langCheck.detail = `Detected languages: ${detected.join(", ")}`;
+      } else {
+        langCheck.status = "issue";
+        langCheck.severity = "medium";
+        langCheck.detail = `Detected languages: ${detected.join(", ") || "-"}. Required: ${required.join(", ") || "-"}.`;
       }
-      if (!out.checks[i].fix) {
-        out.checks[i].fix = "Ensure allergens are emphasized (bold) and the list is in descending order by weight.";
-      }
+      langCheck.fix = ensureFix("language", langCheck.status, langCheck.fix);
     }
   }
-  // recompute overall deterministically
+
+  // Ensure each check has a fix
+  out.checks = out.checks.map(c => ({ ...c, fix: ensureFix(c.id, c.status, c.fix) }));
+
+  // recompute overall
   const hasHigh = out.checks.some(c => c.status !== "ok" && c.severity === "high");
   const hasMedium = out.checks.some(c => c.status !== "ok" && c.severity === "medium");
   out.overall_status = hasHigh ? "fail" : hasMedium ? "caution" : "pass";
@@ -390,36 +423,35 @@ export default async function handler(req, res) {
     };
 
     // First pass → normalize
-let rawReport;
-try {
-  rawReport = await analyzeLabel({ fields, label_image_data_url });
-} catch (e) {
-  return sendJson(res, 500, { error: "OpenAI setup error: " + (e?.message || String(e)) });
-}
+    let rawReport;
+    try {
+      rawReport = await analyzeLabel({ fields, label_image_data_url });
+    } catch (e) {
+      return sendJson(res, 500, { error: "OpenAI setup error: " + (e?.message || String(e)) });
+    }
 
-// Normalize with a safety net (handles bad shapes like checks = {})
-let report;
-try {
-  report = normalizeReport(rawReport, fields);
-} catch (e) {
-  console.error("normalizeReport failed:", e?.message || e, rawReport);
-  report = {
-    version: "1.0",
-    product: {
-      name: fields.product_name || "",
-      country_of_sale: fields.country_of_sale || "",
-      languages_provided: fields.languages_provided || [],
-    },
-    overall_status: "caution",
-    summary: "Normalization error; using fallback.",
-    checks: []
-  };
-}
+    // Normalize with a safety net
+    let report;
+    try {
+      report = normalizeReport(rawReport, fields);
+    } catch (e) {
+      console.error("normalizeReport failed:", e?.message || e, rawReport);
+      report = {
+        version: "1.0",
+        product: {
+          name: fields.product_name || "",
+          country_of_sale: fields.country_of_sale || "",
+          languages_provided: fields.languages_provided || [],
+        },
+        overall_status: "caution",
+        summary: "Normalization error; using fallback.",
+        checks: []
+      };
+    }
 
-// Second-pass recovery (name/ingredients)
-const rec = await recoverEssentials(label_image_data_url, fields);
-report = applyRecovered(report, rec);
-
+    // Second-pass recovery (fills name, ingredients, net qty, date, nutrition, business, languages)
+    const rec = await recoverEssentials(label_image_data_url, fields);
+    report = applyRecovered(report, rec, fields);
 
     // PDF
     let pdf_base64 = null;
