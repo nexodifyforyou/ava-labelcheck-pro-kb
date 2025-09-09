@@ -69,17 +69,41 @@ const REQUIRED_CHECKS = [
   ["language","Language compliance"],
   ["claims","Claims (if any)"]
 ];
-
+//normalizeReport
 function normalizeReport(raw, fields) {
   const r = raw && typeof raw === "object" ? raw : {};
   const product = r.product || {};
-  const checksById = new Map((r.checks || []).map(c => [c.id, c]));
+
+  // Make sure checks is ALWAYS an array
+  let rawChecks = [];
+  if (Array.isArray(r.checks)) {
+    rawChecks = r.checks;
+  } else if (r.checks && typeof r.checks === "object") {
+    // sometimes the model returns {id: {...}, id2: {...}}
+    rawChecks = Object.values(r.checks);
+  } // else leave as empty array
+
+  const checksById = new Map(rawChecks.map(c => [c.id, c]));
+
+  const REQUIRED_CHECKS = [
+    ["name_of_food","Name of food"],
+    ["ingredients","Ingredient list"],
+    ["allergens","Allergen declaration"],
+    ["quid","QUID"],
+    ["net_qty","Net quantity"],
+    ["date_marking","Date marking"],
+    ["storage_use","Storage/conditions of use"],
+    ["business_address","Business name & EU address"],
+    ["nutrition","Nutrition declaration"],
+    ["language","Language compliance"],
+    ["claims","Claims (if any)"]
+  ];
 
   const checks = REQUIRED_CHECKS.map(([id, title]) => {
     const c = checksById.get(id) || {};
     const status = (c.status || "missing").toLowerCase();
     const severity =
-      c.severity ? c.severity.toLowerCase() :
+      c.severity ? String(c.severity).toLowerCase() :
       status === "missing" ? "high" :
       status === "issue" ? "medium" : "low";
 
@@ -93,6 +117,7 @@ function normalizeReport(raw, fields) {
     };
   });
 
+  // deterministic overall
   const hasHigh = checks.some(c => c.status !== "ok" && c.severity === "high");
   const hasMedium = checks.some(c => c.status !== "ok" && c.severity === "medium");
   const overall_status = hasHigh ? "fail" : hasMedium ? "caution" : "pass";
@@ -113,6 +138,7 @@ function normalizeReport(raw, fields) {
     checks
   };
 }
+
 
 // ---- Model call (with fallback) ----
 async function analyzeLabel({ fields, label_image_data_url }) {
@@ -364,17 +390,36 @@ export default async function handler(req, res) {
     };
 
     // First pass → normalize
-    let rawReport;
-    try {
-      rawReport = await analyzeLabel({ fields, label_image_data_url });
-    } catch (e) {
-      return sendJson(res, 500, { error: "OpenAI setup error: " + (e?.message || String(e)) });
-    }
-    let report = normalizeReport(rawReport, fields);
+let rawReport;
+try {
+  rawReport = await analyzeLabel({ fields, label_image_data_url });
+} catch (e) {
+  return sendJson(res, 500, { error: "OpenAI setup error: " + (e?.message || String(e)) });
+}
 
-    // Second-pass recovery (name/ingredients) if the first pass missed them
-    const rec = await recoverEssentials(label_image_data_url, fields);
-    report = applyRecovered(report, rec);
+// Normalize with a safety net (handles bad shapes like checks = {})
+let report;
+try {
+  report = normalizeReport(rawReport, fields);
+} catch (e) {
+  console.error("normalizeReport failed:", e?.message || e, rawReport);
+  report = {
+    version: "1.0",
+    product: {
+      name: fields.product_name || "",
+      country_of_sale: fields.country_of_sale || "",
+      languages_provided: fields.languages_provided || [],
+    },
+    overall_status: "caution",
+    summary: "Normalization error; using fallback.",
+    checks: []
+  };
+}
+
+// Second-pass recovery (name/ingredients)
+const rec = await recoverEssentials(label_image_data_url, fields);
+report = applyRecovered(report, rec);
+
 
     // PDF
     let pdf_base64 = null;
