@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <!-- ***** CHANGE HERE: App name & subtitle shown in the UI ***** -->
   <title><!-- APP_NAME -->LabelCheck<!-- /APP_NAME --> — Client Intake</title>
-  <!-- You can change "Client Intake" later; see the H1 below as well -->
   <style>
     body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; background: #0b1020; color: #e7eefc; }
     .wrap { max-width: 980px; margin: 0 auto; }
@@ -32,7 +31,8 @@
     <h1><!-- APP_NAME -->LabelCheck<!-- /APP_NAME --> — Client Intake</h1>
     <p class="muted">Upload a JPG/PNG of your label. We’ll OCR it, apply EU 1169/2011 + your House Rules, generate a stamped PDF, and (optionally) email it.</p>
 
-    <form id="f">
+    <!-- prevent default submit no matter what -->
+    <form id="f" onsubmit="return false">
       <div class="row">
         <div>
           <label>Product name</label>
@@ -95,19 +95,17 @@
       <label>Optional: extra rules or buyer requirements (used only for this report)</label>
       <textarea name="reference_docs_text" rows="4" placeholder="Paste internal spec, claims substantiation, or buyer’s requirements..."></textarea>
 
-      <button type="submit">Generate Compliance Report</button>
+      <!-- DO NOT SUBMIT THE FORM; we handle click in JS -->
+      <button id="generateBtn" type="button">Generate Compliance Report</button>
     </form>
 
     <div id="out" class="result" style="display:none"></div>
   </div>
 
-  <script type="module">
-    // ===== Small helper so you can rename once in <title>/<h1> =====
-    // (Edit the <!-- APP_NAME -->…<!-- /APP_NAME --> markers in HTML above)
-    // ===============================================================
-
+  <script>
     const form = document.getElementById('f');
     const out = document.getElementById('out');
+    const btn = document.getElementById('generateBtn');
 
     // Resize to <=1600px, JPEG quality 0.85 to keep payload small
     async function fileToDataUrl(file) {
@@ -138,18 +136,24 @@
       return canvas.toDataURL('image/jpeg', 0.85);
     }
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
+    async function handleGenerate() {
+      // build payload from the form
       const fd = new FormData(form);
       const payload = Object.fromEntries(fd.entries());
       payload.languages_provided = (payload.languages_provided || '')
         .split(',').map(s => s.trim()).filter(Boolean);
 
       const imgFile = fd.get('label_image');
+      if (!imgFile || !imgFile.size) {
+        alert('Please choose a label image (JPG/PNG).');
+        return;
+      }
+
       payload.label_image_data_url = await fileToDataUrl(imgFile);
 
       out.style.display = 'block';
       out.textContent = 'Processing…';
+      btn.disabled = true;
 
       try {
         const res = await fetch('/api/labelcheck', {
@@ -161,7 +165,7 @@
         const raw = await res.text(); // support non-JSON errors
         let data;
         try { data = JSON.parse(raw); }
-        catch { out.textContent = 'Server error:\n' + raw; return; }
+        catch { out.textContent = 'Server error:\n' + raw; btn.disabled = false; return; }
 
         if (data.error) throw new Error(data.error);
 
@@ -184,21 +188,7 @@
           </div>
         `;
 
-        const prod = data.report?.product || {};
-const esc = (s) => (s==null ? "" : String(s)
-  .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"));
-const prodHtml = `
-  <div style="margin-top:8px">
-    <strong>Product</strong>
-    <div style="margin-top:6px; padding:10px; border:1px solid #2a3975; border-radius:10px; background:#0b122c;">
-      <div><b>Name:</b> ${esc(prod.name) || "-"}</div>
-      <div><b>Country of sale:</b> ${esc(prod.country_of_sale) || "-"}</div>
-      <div><b>Languages:</b> ${(prod.languages_provided || []).join(", ") || "-"}</div>
-    </div>
-  </div>
-`;
-let html = `${head}${prodHtml}<br><strong>Checks</strong><br>`;
-
+        let html = `${head}${prodHtml}<br><strong>Checks</strong><br>`;
         for (const c of (data.report?.checks || [])) {
           html += `• [${(c.status||'').toUpperCase()} | ${c.severity}] ${c.title}<br>`;
           if (c.detail) html += `<span class="pre">- ${c.detail}</span><br>`;
@@ -217,10 +207,16 @@ let html = `${head}${prodHtml}<br><strong>Checks</strong><br>`;
           a.style.marginTop = '6px';
           out.appendChild(a);
         }
+
       } catch (err) {
         out.textContent = 'Error: ' + (err?.message || err);
+      } finally {
+        btn.disabled = false;
       }
-    });
+    }
+
+    // Click handler instead of submit (prevents page refresh even if JS attaches late)
+    btn.addEventListener('click', handleGenerate);
   </script>
 </body>
 </html>
