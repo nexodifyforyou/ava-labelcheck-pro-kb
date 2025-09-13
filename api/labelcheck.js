@@ -15,7 +15,7 @@ import { fileURLToPath } from "url";
 /* ------------------------- clients / env -------------------------- */
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const resend = new Resend(process.env.RESEND_API_KEY ?? "");
-const RESEND_FROM = process.env.RESEND_FROM || `${APP_NAME} <onboarding@resend.dev>`;
+const RESEND_FROM = process.env.RESEND_FROM || ""; // <- require your verified domain
 
 /* ------------------------- small helpers -------------------------- */
 function sendJson(res, status, obj) {
@@ -80,7 +80,6 @@ function readIfExists(rel) {
     return "";
   }
 }
-// Your KB files
 const KB_HOUSE = readIfExists("kb/house_rules.md");
 const KB_REFS  = readIfExists("kb/refs.md");
 const KB_BUYER = readIfExists("kb/buyer-generic-eu.md");
@@ -169,6 +168,73 @@ async function analyzeHalal({ fields, imageDataUrl, pdfText, tdsText, extraRules
   return extractJsonObject(raw, true);
 }
 
+/* ------------------------ deterministic rules --------------------- */
+// map of primary language by country (extend as needed)
+const COUNTRY_LANG = {
+  italy: "it", germany: "de", france: "fr", spain: "es", portugal: "pt",
+  netherlands: "nl", belgium: "nl", austria: "de", denmark: "da",
+  sweden: "sv", finland: "fi", poland: "pl", romania: "ro", greece: "el",
+  czechia: "cs", slovakia: "sk", slovenia: "sl", hungary: "hu", ireland: "en",
+  "united kingdom": "en"
+};
+
+function pickIngredientFromName(name) {
+  if (!name) return "";
+  const stop = new Set(["di","de","al","alla","allo","candite","canditi","sgocciolate","sgocciolato","sciroppo","glucosio","regolatore","acido"]);
+  const words = name.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu," ").split(/\s+/).filter(Boolean);
+  for (const w of words) {
+    if (!stop.has(w) && w.length > 2) return w; // first meaningful token
+  }
+  return words[0] || "";
+}
+
+function upsertCheck(checks, title, updater) {
+  const idx = checks.findIndex(c => (c?.title || "").toLowerCase().includes(title.toLowerCase()));
+  if (idx >= 0) checks[idx] = updater(checks[idx]);
+  else checks.push(updater({ title, status: "issue", severity: "medium", detail: "", fix: "", sources: [] }));
+}
+
+function enforceDeterministic(report, fields, pdfText, tdsText, extraRules) {
+  const checks = Array.isArray(report.checks) ? report.checks : [];
+  const textAll = `${(pdfText||"")}\n${(tdsText||"")}\n${(extraRules||"")}`.toLowerCase();
+
+  // 1) Language compliance
+  const reqLang = COUNTRY_LANG[(fields.country_of_sale||"").toLowerCase()];
+  if (reqLang) {
+    const provided = Array.isArray(report.product?.languages_provided) ? report.product.languages_provided.map(x=>String(x||"").toLowerCase()) : [];
+    if (!provided.includes(reqLang)) {
+      upsertCheck(checks, "Language Compliance", (c)=>({
+        title: "Language Compliance",
+        status: "issue",
+        severity: "medium",
+        detail: `Primary language "${reqLang}" required for ${fields.country_of_sale} is not in languages_provided.`,
+        fix: `Add mandatory particulars in "${reqLang}" for sale in ${fields.country_of_sale}.`,
+        sources: ["EU1169:Art 15"]
+      }));
+    }
+  }
+
+  // 2) QUID: if name highlights an ingredient, require % near it in text sources
+  const ingr = pickIngredientFromName(fields.product_name || report.product?.name || "");
+  if (ingr) {
+    const quidRegex = new RegExp(`${ingr}\\s*[^\\n]{0,40}?\\d{1,3}\\s*%`, "i");
+    const foundQuid = quidRegex.test(textAll);
+    if (!foundQuid) {
+      upsertCheck(checks, "QUID", (c)=>({
+        title: "QUID",
+        status: "issue",
+        severity: "high",
+        detail: `Sales name highlights "${ingr}", but no percentage (%) is found next to the sales name or in the ingredients list.`,
+        fix: `Declare the percentage of "${ingr}" (e.g., "${ingr} 60%") near the sales name or in the ingredients list per EU 1169/2011.`,
+        sources: ["EU1169:Art 22; Annex VIII"]
+      }));
+    }
+  }
+
+  report.checks = checks;
+  return report;
+}
+
 /* ------------------------ post-processors ------------------------- */
 function normalizeReport(r, fields) {
   const report = {
@@ -206,12 +272,8 @@ function normalizeReport(r, fields) {
   return { ...report, overall_status, score };
 }
 
-function buildFixPack(report, halalChecks) {
+function buildFixPackLines(report, halalChecks) {
   const lines = [];
-  lines.push(`${APP_NAME} — Fix Pack`);
-  lines.push(`Generated: ${new Date().toISOString()}`);
-  lines.push(`Product: ${report.product?.name || "-"}`);
-  lines.push("");
   const add = (c, prefix="") => {
     if (c.status === "ok") return;
     lines.push(`${prefix}${c.title} [${c.severity.toUpperCase()}]`);
@@ -222,7 +284,7 @@ function buildFixPack(report, halalChecks) {
   };
   for (const c of report.checks) add(c);
   if (Array.isArray(halalChecks)) for (const c of halalChecks) add(c, "Halal: ");
-  return lines.join("\n");
+  return lines;
 }
 
 function makePdf({ report, halalChecks, fields }) {
@@ -231,6 +293,7 @@ function makePdf({ report, halalChecks, fields }) {
   doc.on("data", d => bufs.push(d));
   doc.on("error", e => console.error("PDF error:", e));
 
+  // Cover / summary
   doc.fontSize(18).text(`${APP_NAME} — Compliance Assessment`, { align: "left" });
   doc.moveDown(0.3);
   doc.fontSize(10).fillColor("#555").text(
@@ -249,9 +312,13 @@ function makePdf({ report, halalChecks, fields }) {
   doc.moveDown();
 
   doc.fontSize(12).text(`Overall: ${report.overall_status.toUpperCase()}  •  Score: ${report.score}/100`);
-  if (report.summary) { doc.moveDown(0.5); doc.fontSize(10).text(report.summary, { width: 520 }); }
+  if (report.summary) {
+    doc.moveDown(0.5);
+    doc.fontSize(10).text(report.summary, { width: 520 });
+  }
   doc.moveDown();
 
+  // EU checks
   doc.fontSize(12).text("EU 1169/2011 Checks");
   doc.moveDown(0.3);
   doc.fontSize(10);
@@ -265,6 +332,7 @@ function makePdf({ report, halalChecks, fields }) {
     doc.moveDown(0.4);
   }
 
+  // Halal page
   if (Array.isArray(halalChecks) && halalChecks.length) {
     doc.addPage();
     doc.fontSize(14).text("Halal Pre-Audit", { underline: true });
@@ -278,6 +346,15 @@ function makePdf({ report, halalChecks, fields }) {
       }
       doc.moveDown(0.4);
     }
+  }
+
+  // Fix Pack page (non-OK only)
+  const fixes = buildFixPackLines(report, halalChecks);
+  if (fixes.length) {
+    doc.addPage();
+    doc.fontSize(14).text("Fix Pack", { underline: true });
+    doc.moveDown(0.5).fontSize(10);
+    for (const line of fixes) doc.text(line);
   }
 
   doc.end();
@@ -328,7 +405,7 @@ export default async function handler(req, res) {
       labelPdfText = parsed.text || "";
     }
 
-    // Main EU analysis
+    // Main EU analysis (model)
     const rawReport = await analyzeEU({
       fields,
       imageDataUrl: label_image_data_url || null,
@@ -337,7 +414,9 @@ export default async function handler(req, res) {
       extraRules: reference_docs_text || ""
     });
 
+    // Normalize + enforce deterministic rules (QUID / Language)
     let report = normalizeReport(rawReport, fields);
+    report = enforceDeterministic(report, fields, labelPdfText, tdsText, reference_docs_text);
 
     // Optional Halal
     let halalChecks = [];
@@ -359,13 +438,14 @@ export default async function handler(req, res) {
       }));
     }
 
-    // Fix Pack + PDF
-    const fixpack_text = buildFixPack(report, halalChecks);
-    const pdf_base64   = makePdf({ report, halalChecks, fields });
+    // PDF (includes Fix Pack page)
+    const pdf_base64 = makePdf({ report, halalChecks, fields });
 
-    // Email (optional)
+    // Email (optional, now stricter)
     let email_status = "skipped";
-    if (process.env.RESEND_API_KEY && company_email) {
+    if (!RESEND_FROM) {
+      email_status = "skipped: set RESEND_FROM to a verified domain sender";
+    } else if (process.env.RESEND_API_KEY && company_email) {
       try {
         await resend.emails.send({
           from: RESEND_FROM,
@@ -375,8 +455,7 @@ export default async function handler(req, res) {
                  <p>Attached is your preliminary compliance report for <strong>${fields.product_name || "your product"}</strong>.</p>
                  <p>Best,<br/>${APP_NAME}</p>`,
           attachments: [
-            { filename: "Preflight_Report.pdf", content: pdf_base64, contentType: "application/pdf" },
-            { filename: "Fix_Pack.txt", content: Buffer.from(fixpack_text).toString("base64"), contentType: "text/plain" }
+            { filename: "Preflight_Report.pdf", content: pdf_base64, contentType: "application/pdf" }
           ]
         });
         email_status = "sent";
@@ -391,7 +470,6 @@ export default async function handler(req, res) {
       halal_audit: !!halal_audit,
       halal_checks: halalChecks,
       pdf_base64,
-      fixpack_text,
       email_status
     });
   } catch (err) {
