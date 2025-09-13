@@ -15,7 +15,8 @@ import { fileURLToPath } from "url";
 /* ------------------------- clients / env -------------------------- */
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const resend = new Resend(process.env.RESEND_API_KEY ?? "");
-const RESEND_FROM = process.env.RESEND_FROM || ""; // <- require your verified domain
+// Default to onboarding@resend.dev (deliverability is limited unless domain/recipient is verified)
+const RESEND_FROM = process.env.RESEND_FROM || `${APP_NAME} <onboarding@resend.dev>`; // <- require your verified domain
 
 /* ------------------------- small helpers -------------------------- */
 function sendJson(res, status, obj) {
@@ -442,23 +443,28 @@ export default async function handler(req, res) {
     const pdf_base64 = makePdf({ report, halalChecks, fields });
 
     // Email (optional, now stricter)
-    let email_status = "skipped";
-    if (!RESEND_FROM) {
-      email_status = "skipped: set RESEND_FROM to a verified domain sender";
-    } else if (process.env.RESEND_API_KEY && company_email) {
+  let email_status = "skipped";
+    if (process.env.RESEND_API_KEY && company_email) {
+      // split multiple recipients by comma/semicolon
+      const recipients = String(company_email)
+        .split(/[;,]/)
+        .map(s=>s.trim())
+        .filter(Boolean);
+
       try {
         await resend.emails.send({
           from: RESEND_FROM,
-          to: company_email,
+          to: recipients, // array supported
           subject: `${APP_NAME} — ${fields.product_name || "Your Product"}`,
           html: `<p>Hello ${fields.company_name || ""},</p>
                  <p>Attached is your preliminary compliance report for <strong>${fields.product_name || "your product"}</strong>.</p>
-                 <p>Best,<br/>${APP_NAME}</p>`,
+                 <p>Best,<br/>${APP_NAME}</p>
+                 <p style="color:#64748b;font-size:12px">Note: Deliverability from onboarding@resend.dev is limited by Resend unless recipients or domain are verified.</p>`,
           attachments: [
             { filename: "Preflight_Report.pdf", content: pdf_base64, contentType: "application/pdf" }
           ]
         });
-        email_status = "sent";
+        email_status = `sent to ${recipients.length}`;
       } catch (e) {
         email_status = "failed: " + (e?.message || e);
       }
