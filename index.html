@@ -6,72 +6,58 @@
 <title>Nexodify’s Label Compliance Preflight</title>
 <style>
   :root{
-    --bg:#0b1020;--bg2:#0e1430;--card:#111a3a;--ink:#eaf0ff;--muted:#a7b3d6;
-    --line:#223064;--brand:#5b84ff;--ink-soft:#cdd7f6;--ok:#1fc588;--warn:#ffc857;--bad:#ff6161
+    --bg:#0b1020;--card:#121833;--ink:#eaf0ff;--muted:#9fb0d7;--line:#1e2a5a;
+    --brand:#4f7dff;--ok:#18c37d;--warn:#ffb020;--bad:#ff4d4d
   }
   *{box-sizing:border-box}
-  html,body{height:100%}
-  body{
-    margin:0;background:radial-gradient(1000px 600px at 10% -10%,#18234c 0%,transparent 60%),linear-gradient(180deg,#0b1020,#0b1020 50%,#0c1228);
-    color:var(--ink);font:14px/1.5 Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;
-  }
-  .container{max-width:1200px;margin:32px auto;padding:0 20px}
-  header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px}
-  h1{margin:0;font-size:28px;letter-spacing:0.3px}
-  .tagline{margin:6px 0 0;color:var(--muted)}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif}
+  .wrap{max-width:1100px;margin:28px auto;padding:0 16px}
+  header{margin-bottom:16px}
+  h1{margin:0;font-size:26px}
+  .tagline{color:var(--muted);margin-top:6px}
   .grid{display:grid;gap:14px}
-  @media (min-width:1020px){.grid.two{grid-template-columns:1fr 1.1fr}}
-  .card{
-    background:linear-gradient(180deg,var(--card),#0f1835);
-    border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 8px 30px rgba(0,0,0,.25)
-  }
-  label{font-weight:700;font-size:13px;display:block;margin-bottom:6px}
-  input,select,textarea{
-    width:100%;background:#0f1530;border:1px solid #2a3975;border-radius:12px;color:var(--ink);
-    padding:12px 12px;font-size:14px;outline:none
-  }
+  @media (min-width:1000px){.grid.two{grid-template-columns: 1fr 1.05fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 10px 28px rgba(0,0,0,.28)}
+  .card.full{grid-column:1/-1}
+  label{font-weight:700;font-size:13px;margin-bottom:6px;display:block}
+  input,select,textarea{width:100%;background:#0f1530;border:1px solid #2a3975;border-radius:12px;color:var(--ink);padding:10px}
   textarea{resize:vertical}
   .row{display:grid;gap:12px}
-  @media (min-width:720px){.row.two{grid-template-columns:1fr 1fr}}
-  .help{color:var(--muted);font-size:12px;margin-top:6px}
-  .hint{color:var(--muted);font-size:12px;margin-top:6px}
-  .btn{
-    display:inline-flex;align-items:center;gap:8px;background:var(--brand);border:0;color:#fff;
-    font-weight:800;border-radius:12px;padding:12px 16px;cursor:pointer;text-decoration:none
-  }
+  .two{grid-template-columns:1fr 1fr}
+  .help{color:var(--muted);font-size:12px}
+  .btn{display:inline-block;background:var(--brand);border:0;color:#fff;font-weight:800;border-radius:12px;padding:12px 16px;cursor:pointer}
   .btn.secondary{background:#2a3975}
   .btn[disabled]{opacity:.6;pointer-events:none}
-  .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
-  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
-  .chip{padding:4px 10px;border-radius:999px;background:#1d2a56;color:#c9d5ff;font-size:12px;border:1px solid #2a3975}
-  .chip.ok{background:#0f3b2b;color:#bff7e1;border-color:#17634a}
-  .chip.warn{background:#4a3a0f;color:#ffe9b0;border-color:#705616}
-  .chip.bad{background:#492022;color:#ffc6c6;border-color:#7e3338}
-  .checks{padding:6px 2px}
-  .check{
-    border-left:3px solid #2a3975;padding:8px 10px;margin:8px 0;background:#0e1532;border-radius:10px
-  }
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+  .chip{display:inline-block;padding:4px 10px;border-radius:999px;background:#1d2a56;color:#cbd5ff;font-size:12px;border:1px solid #2a3975;margin-right:8px}
+  .chip.ok{background:#0f3b2b;color:#b7f8da;border-color:#17634a}
+  .chip.warn{background:#4a3700;color:#ffe2a8;border-color:#6b520a}
+  .chip.bad{background:#4a0e0e;color:#ffc1c1;border-color:#7f2f35}
+  .badge{display:inline-block;padding:3px 10px;border-radius:999px;font-weight:900;margin-right:8px}
+  .pass{background:var(--ok);color:#032015}
+  .caution{background:var(--warn);color:#2a1a00}
+  .fail{background:var(--bad);color:#2a0202}
+  .kv{color:#d6defa}
+  .pre{white-space:pre-wrap;background:#0e1532;border:1px solid #2a3975;border-radius:10px;padding:10px;color:#d4dcff}
+  .sub{font-weight:900;color:#d7defa;margin-bottom:6px}
+  .hint{color:var(--muted);font-size:12px}
+  .checks{padding:6px 0}
+  .check{background:#0e1532;border:1px solid #2a3975;border-left-width:4px;border-radius:10px;padding:10px;margin:8px 0}
   .check.ok{border-left-color:var(--ok)}
   .check.med{border-left-color:#ffb020}
-  .check.bad{border-left-color:var(--bad)}
-  .check .title{font-weight:800}
-  .subtle{color:var(--muted)}
-  .section-title{font-weight:900;margin:14px 0 8px}
-  .downloads{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  .divider{height:1px;background:var(--line);margin:14px 0}
+  .check.bad{border-left-color:#ff6262}
+  .title{font-weight:800}
 </style>
 </head>
 <body>
-  <div class="container">
+  <div class="wrap">
     <header>
-      <div>
-        <h1>Nexodify’s Label Compliance Preflight</h1>
-        <div class="tagline">Cited. Actionable. Production-ready.</div>
-      </div>
+      <h1>Nexodify’s Label Compliance Preflight</h1>
+      <div class="tagline">Cited. Actionable. Production-ready.</div>
     </header>
 
     <div class="grid two">
-      <!-- FORM -->
+      <!-- LEFT: FORM -->
       <div class="card">
         <div class="row two">
           <div>
@@ -125,9 +111,10 @@
         <div style="margin-top:10px">
           <label>Extra rules / buyer requirements (optional)</label>
           <textarea id="reference_docs_text" rows="4" placeholder="Paste internal spec, buyer rules, claims substantiation..."></textarea>
-          <div class="hint">If omitted, the engine uses EU baseline and our internal database.</div>
+          <div class="help">If omitted, the engine uses EU baseline and our internal database.</div>
         </div>
 
+        <!-- Halal toggle kept OUTSIDE the textarea, same line height, no overlap -->
         <div class="row" style="grid-template-columns:auto 1fr;align-items:center;margin-top:12px">
           <input id="halal_audit" type="checkbox" style="width:18px;height:18px;margin:0 6px 0 0">
           <div>
@@ -137,124 +124,181 @@
         </div>
 
         <div class="toolbar">
-          <button id="run" class="btn">Generate Preflight</button>
-          <button id="reset" class="btn secondary">Reset</button>
+          <button class="btn" id="goBtn">Generate Preflight</button>
+          <button class="btn secondary" id="resetBtn" type="button">Reset</button>
         </div>
       </div>
 
-      <!-- RESULTS -->
-      <div class="card" id="results" style="display:none">
-        <div class="chips" id="chips"></div>
-        <div class="subtle" id="summary" style="margin-bottom:10px"></div>
+      <!-- RIGHT: RESULTS -->
+      <div class="card" id="results" style="display:none"></div>
 
-        <div class="row two">
-          <div><span class="subtle">Name:</span> <b id="pname">—</b></div>
-          <div><span class="subtle">Country:</span> <b id="pcountry">—</b></div>
-        </div>
-        <div style="margin-top:6px"><span class="subtle">Languages:</span> <b id="plangs">—</b></div>
-
-        <div class="divider"></div>
-
-        <div class="section-title">EU 1169/2011 Checks</div>
-        <div id="checks" class="checks"></div>
-
-        <div class="divider"></div>
-
-        <div class="section-title">Downloads</div>
-        <div id="downloads" class="downloads"></div>
-      </div>
+      <!-- Downloads card appears inside results rendering, but keep space: -->
+      <div class="card full" id="downloadsShell" style="display:none"></div>
     </div>
   </div>
 
 <script>
-const $ = id => document.getElementById(id);
-const toBase64 = file => new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file);});
-$("reset").onclick = () => location.reload();
+/* ========= helpers ========= */
+const $ = (id)=>document.getElementById(id);
+const out = $("results");
+const goBtn = $("goBtn");
+const resetBtn = $("resetBtn");
 
-$("run").onclick = async () => {
-  const btn = $("run"); btn.disabled = true;
+const productName = $("product_name");
+const companyName = $("company_name");
+const companyEmail = $("company_email");
+const countrySale  = $("country_of_sale");
+const langs        = $("languages_provided");
+const scope        = $("shipping_scope");
+const labelInput   = $("label_file");
+const tdsInput     = $("tds_file");
+const extraRules   = $("reference_docs_text");
+const halalToggle  = $("halal_audit");
 
-  const payload = {
-    product_name: $("product_name").value.trim(),
-    company_name: $("company_name").value.trim(),
-    company_email: $("company_email").value.trim(),
-    country_of_sale: $("country_of_sale").value.trim(),
-    languages_provided: $("languages_provided").value.split(",").map(s=>s.trim()).filter(Boolean),
-    shipping_scope: $("shipping_scope").value,
-    product_category: "General",
-    reference_docs_text: $("reference_docs_text").value,
-    halal_audit: $("halal_audit").checked
-  };
+const downloadsShell = $("downloadsShell");
 
-  const labelFile = $("label_file").files[0];
-  if (labelFile) {
-    const b64 = await toBase64(labelFile);
-    if (labelFile.type === "application/pdf") {
-      payload.label_pdf_file = { name: labelFile.name, base64: b64 };
-    } else {
-      payload.label_image_data_url = b64;
+function esc(s){return String(s??"").replace(/[&<>]/g,c=>({ "&":"&amp;","<":"&lt;",">":"&gt;" }[c]))}
+const isArray = (v)=>Array.isArray(v);
+
+const toDataURL = (file)=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file);});
+const fmtKB = (n)=>Math.round((n||0)/1024);
+
+function statusClass(overall){overall=(overall||"caution").toLowerCase();return overall==="pass"?"pass":overall==="fail"?"fail":"caution"}
+
+function checkPill(c){
+  const cls = c.status==="ok" ? "ok" : (c.severity==="high"?"bad":"med");
+  return `<div class="check ${cls}">
+    <div class="title">${esc(c.title||"-")} <span class="chip" style="margin-left:6px">${esc((c.status||"").toUpperCase())}${c.severity?` · ${esc(c.severity)}`:""}</span></div>
+    ${c.detail?`<div>${esc(c.detail)}</div>`:""}
+    ${c.status!=="ok" && c.fix ? `<div>→ <i>${esc(c.fix)}</i></div>`:""}
+    ${isArray(c.sources)&&c.sources.length?`<div class="hint">Sources: ${c.sources.map(esc).join("; ")}</div>`:""}
+  </div>`;
+}
+
+function renderChecks(title, arr){
+  if(!isArray(arr)||!arr.length) return "";
+  return `<div class="card full">
+    <div class="sub">${esc(title)}</div>
+    <div class="checks">${arr.map(checkPill).join("")}</div>
+  </div>`;
+}
+
+function setLoading(b){goBtn.disabled=b; goBtn.textContent = b? "Generating…":"Generate Preflight";}
+
+/* ========= main ========= */
+async function generate(){
+  try{
+    setLoading(true);
+    out.style.display = "block";
+    out.innerHTML = '<div class="pre">Running…</div>';
+    downloadsShell.style.display = "none";
+    downloadsShell.innerHTML = "";
+
+    const fields = {
+      product_name: productName.value.trim(),
+      company_name: companyName.value.trim(),
+      company_email: companyEmail.value.trim(), // supports multiple, comma/semicolon separated on the server
+      country_of_sale: countrySale.value.trim(),
+      languages_provided: (langs.value||"").split(",").map(s=>s.trim()).filter(Boolean),
+      shipping_scope: scope.value,
+      product_category: "General",
+      reference_docs_text: extraRules.value,
+      halal_audit: halalToggle.checked
+    };
+
+    // Files
+    if(labelInput.files[0]){
+      const lf = labelInput.files[0];
+      const b64 = await toDataURL(lf);
+      if(lf.type==="application/pdf"){
+        fields.label_pdf_file = { name: lf.name, base64: b64 };
+      }else{
+        fields.label_image_data_url = b64;
+      }
     }
-  }
-  const tds = $("tds_file").files[0];
-  if (tds) payload.tds_file = { name: tds.name, base64: await toBase64(tds) };
+    if(tdsInput.files[0]){
+      const tf = tdsInput.files[0];
+      fields.tds_file = { name: tf.name, base64: await toDataURL(tf) };
+    }
 
-  const res = await fetch("/api/labelcheck", {
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify(payload)
-  });
-  const data = await res.json();
+    const res = await fetch("/api/labelcheck", {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify(fields)
+    });
+    const data = await res.json();
 
-  $("results").style.display = "block";
+    const overall = data.report?.overall_status || "caution";
+    const status  = statusClass(overall);
+    const score   = (data.score ?? data.report?.score ?? "-");
+    const prod    = data.report?.product || {};
 
-  // Chips
-  const chips = [];
-  const overall = (data.report?.overall_status || "caution").toUpperCase();
-  const score = data.score ?? data.report?.score ?? "-";
-  chips.push(`<span class="chip ${overall==="PASS"?"ok":overall==="FAIL"?"bad":"warn"}">${overall}</span>`);
-  chips.push(`<span class="chip">Score ${score}/100</span>`);
-  chips.push(`<span class="chip">Halal: ${data.halal_audit ? "ON" : "OFF"}</span>`);
-  chips.push(`<span class="chip">Email: ${data.email_status || "-"}</span>`);
-  if (data.pdf_len) chips.push(`<span class="chip">PDF: ${data.pdf_len}</span>`);
-  $("chips").innerHTML = chips.join("");
+    // Top card
+    let html = `<div class="card full">
+      <span class="badge ${status}">${esc(overall.toUpperCase())}</span>
+      <span class="chip">Score ${esc(score)}/100</span>
+      <span class="chip">Halal: ${data.halal_audit?'ON':'OFF'}</span>
+      ${data.email_status ? `<span class="chip">Email: ${esc(data.email_status)}</span>` : ''}
+      ${data.pdf_len ? `<span class="chip">PDF: ${esc(data.pdf_len)}</span>` : ''}
 
-  // Summary & product
-  $("summary").textContent = data.report?.summary || "";
-  $("pname").textContent = data.report?.product?.name || "—";
-  $("pcountry").textContent = data.report?.product?.country_of_sale || "—";
-  $("plangs").textContent = (data.report?.product?.languages_provided || []).join(", ") || "—";
+      <div class="row two" style="margin-top:10px">
+        <div class="kv"><b>Name:</b> ${esc(prod.name)||'-'}</div>
+        <div class="kv"><b>Country:</b> ${esc(prod.country_of_sale)||'-'}</div>
+      </div>
+      <div class="kv" style="margin-top:4px"><b>Languages:</b> ${(prod.languages_provided||[]).join(', ')||'-'}</div>
+      ${data.report?.summary ? `<div class="pre" style="margin-top:10px">${esc(data.report.summary)}</div>` : ''}
+    </div>`;
 
-  // Checks
-  const checks = data.report?.checks || [];
-  $("checks").innerHTML = checks.map(c=>{
-    const cls = c.status==="ok" ? "ok" : (c.severity==="high"?"bad":"med");
-    return `
-      <div class="check ${cls}">
-        <div class="title">${c.title || "-"}</div>
-        ${c.detail ? `<div>${c.detail}</div>` : ""}
-        ${c.fix && c.status!=="ok" ? `<div>→ <i>${c.fix}</i></div>` : ""}
-        ${Array.isArray(c.sources)&&c.sources.length ? `<div class="subtle" style="font-size:12px">Sources: ${c.sources.join("; ")}</div>` : ""}
+    // Checks
+    html += renderChecks('EU 1169/2011 Checks', data.report?.checks);
+    if(isArray(data.halal_checks) && data.halal_checks.length){
+      html += renderChecks('Halal Pre-Audit', data.halal_checks);
+    }
+
+    // Downloads card (PDF + diagnostics)
+    const pdfReady = !!(data.pdf_len && data.pdf_len > 1000 && data.pdf_base64);
+    const downloads = `
+      <div>
+        <div class="sub">Downloads</div>
+        ${pdfReady ? `<div class="hint">PDF ready (${fmtKB(data.pdf_len)} KB)</div>` :
+          `<div class="hint">PDF unavailable${data.pdf_error ? ' — ' + esc(data.pdf_error) : ''}</div>`}
+      </div>
+      <div>
+        ${pdfReady ? `
+          <a download="Preflight_Report.pdf" href="data:application/pdf;base64,${data.pdf_base64}">
+            <button class="btn" type="button">Download Report (PDF)</button>
+          </a>` : ``}
       </div>`;
-  }).join("");
 
-  // Downloads
-  const dl = $("downloads");
-  dl.innerHTML = "";
-  if (data.pdf_base64 && (data.pdf_len||0) > 1000) {
-    const a = document.createElement("a");
-    a.className = "btn"; a.textContent = "Download Report (PDF)";
-    a.download = "Preflight_Report.pdf";
-    a.href = `data:application/pdf;base64,${data.pdf_base64}`;
-    dl.appendChild(a);
-  } else {
-    const span = document.createElement("span");
-    span.className = "subtle";
-    span.textContent = `PDF unavailable${data.pdf_error ? " — " + data.pdf_error : ""}`;
-    dl.appendChild(span);
+    out.innerHTML = html;
+
+    downloadsShell.style.display = "flex";
+    downloadsShell.style.alignItems = "center";
+    downloadsShell.style.justifyContent = "space-between";
+    downloadsShell.style.gap = "10px";
+    downloadsShell.innerHTML = downloads;
+
+    out.scrollIntoView({behavior:'smooth', block:'start'});
+  }catch(e){
+    out.innerHTML = '<div class="card"><h3>Error</h3><div class="pre">'+esc(e?.message||e)+'</div></div>';
+  }finally{
+    setLoading(false);
   }
+}
 
-  btn.disabled = false;
-};
+function resetAll(){
+  productName.value = companyName.value = companyEmail.value = countrySale.value = "";
+  langs.value = ""; scope.selectedIndex = 0; extraRules.value = ""; halalToggle.checked = false;
+  labelInput.value = ""; tdsInput.value = "";
+  out.innerHTML = ""; out.style.display = "none";
+  downloadsShell.style.display = "none"; downloadsShell.innerHTML = "";
+}
+
+/* ========= events ========= */
+document.addEventListener('DOMContentLoaded', ()=>{
+  goBtn.addEventListener('click', generate);
+  resetBtn.addEventListener('click', resetAll);
+});
 </script>
 </body>
 </html>
