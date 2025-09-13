@@ -77,7 +77,7 @@
         <div>
           <h1>Nexodify’s Label Compliance Preflight</h1>
           <div class="sub">Cited. Actionable. Production-ready.</div>
-          <div class="sub" style="font-size:12px; opacity:.85">EU 1169/2011 preflight • optional Halal pre-audit • PDF + Fix Pack</div>
+          <div class="sub" style="font-size:12px; opacity:.85">EU 1169/2011 preflight • optional Halal pre-audit • PDF report</div>
         </div>
       </div>
     </header>
@@ -118,7 +118,8 @@
           <label>Company name</label>
           <input name="company_name" placeholder="ACME Foods S.r.l." required/>
           <label style="margin-top:10px">Company email (report will be sent here)</label>
-          <input name="company_email" type="email" placeholder="qa@acmefoods.it" required/>
+          <input name="company_email" type="text" placeholder="qa@acmefoods.it, qa2@acmefoods.it" required/>
+          <div class="hint">You can enter multiple emails separated by comma or semicolon.</div>
         </div>
       </div>
 
@@ -288,17 +289,18 @@
         if(Array.isArray(data.halal_checks) && data.halal_checks.length){
           html += renderChecks('Halal Pre-Audit', data.halal_checks);
         }
-html += `<div class="card full" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-  <div class="sub">Downloads</div>
-  <div>
-    ${data.pdf_base64
-      ? `<a download="Preflight_Report.pdf" href="data:application/pdf;base64,${data.pdf_base64}">
-           <button class="btn" type="button">Download Report (PDF)</button>
-         </a>`
-      : ``}
-  </div>
-</div>`;
 
+        /* ---- Correct PDF download block (must be added to html string) ---- */
+        html += `<div class="card full" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <div class="sub">Downloads</div>
+          <div>
+            ${data.pdf_base64
+              ? `<a download="Preflight_Report.pdf" href="data:application/pdf;base64,${data.pdf_base64}">
+                   <button class="btn" type="button">Download Report (PDF)</button>
+                 </a>`
+              : ``}
+          </div>
+        </div>`;
 
         out.innerHTML = html;
         out.scrollIntoView({behavior:'smooth', block:'start'});
