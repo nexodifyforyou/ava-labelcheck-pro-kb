@@ -15,6 +15,7 @@ import { fileURLToPath } from "url";
 /* ------------------------- clients / env -------------------------- */
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const resend = new Resend(process.env.RESEND_API_KEY ?? "");
+const RESEND_FROM = process.env.RESEND_FROM || `${APP_NAME} <onboarding@resend.dev>`;
 
 /* ------------------------- small helpers -------------------------- */
 function sendJson(res, status, obj) {
@@ -37,14 +38,36 @@ async function readJsonBody(req) {
     let data = "";
     req.on("data", (c) => (data += c));
     req.on("end", () => {
-      try {
-        resolve(JSON.parse(data || "{}"));
-      } catch (e) {
-        reject(new Error("Invalid JSON body"));
-      }
+      try { resolve(JSON.parse(data || "{}")); }
+      catch { reject(new Error("Invalid JSON body")); }
     });
     req.on("error", reject);
   });
+}
+
+/* ---------- JSON extraction (handles ```json fences, extra text) --------- */
+function extractJsonObject(text, wantArray = false) {
+  if (!text) return wantArray ? [] : {};
+  const t = String(text).trim();
+
+  // a) code fence
+  const fence = t.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (fence) {
+    try { return JSON.parse(fence[1]); } catch {}
+  }
+  // b) straight parse
+  try { return JSON.parse(t); } catch {}
+
+  // c) scan for first {...} or [...]
+  const open = wantArray ? "[" : "{";
+  const close = wantArray ? "]" : "}";
+  const start = t.indexOf(open);
+  const end = t.lastIndexOf(close);
+  if (start !== -1 && end !== -1 && end > start) {
+    const slice = t.slice(start, end + 1);
+    try { return JSON.parse(slice); } catch {}
+  }
+  return wantArray ? [] : {};
 }
 
 /* --------------------- load KB (best effort) ---------------------- */
@@ -57,125 +80,93 @@ function readIfExists(rel) {
     return "";
   }
 }
-// Your KB files (as created earlier)
+// Your KB files
 const KB_HOUSE = readIfExists("kb/house_rules.md");
-const KB_REFS = readIfExists("kb/refs.md");
+const KB_REFS  = readIfExists("kb/refs.md");
 const KB_BUYER = readIfExists("kb/buyer-generic-eu.md");
 const KB_HALAL = readIfExists("kb/halal_rules.md");
 
 /* -------------------- prompt system messages ---------------------- */
 const SYSTEM_PROMPT = `
 You are an expert EU food label compliance assistant for Regulation (EU) No 1169/2011.
-Return a JSON object with:
-- version: "1.0"
-- product: { name, country_of_sale, languages_provided: string[] }
-- summary: a 1-2 sentence overview
-- checks: array of items { title, status: "ok"|"issue"|"missing", severity: "low"|"medium"|"high", detail, fix, sources[] }
-
+Return ONLY pure JSON (no markdown fences). Shape:
+{
+  "version": "1.0",
+  "product": { "name": "", "country_of_sale": "", "languages_provided": [] },
+  "summary": "",
+  "checks": [
+    { "title": "", "status": "ok|issue|missing", "severity": "low|medium|high", "detail": "", "fix": "", "sources": [] }
+  ]
+}
 Rules:
 - Be precise. If unsure, mark as "missing" with a short detail.
 - Only include Fix and Sources for non-OK items.
-- Cite concise sources using tags (e.g., "EU1169:Art 22; Annex VIII") and/or exact KB filenames when relevant (e.g., "buyer-generic-eu.md", "refs.md", "TDS: file.pdf").
-- Do NOT invent facts. If an item is present on the label/TDS, mark it OK.
-- Important topics: sales name, ingredient list (descending order), allergen emphasis (Annex II), QUID (Art 22), net quantity, date marking, storage/conditions of use, FBO name/EU address, nutrition table order per 100g/100ml, language compliance for the country of sale, and claims.
+- Cite concise sources (e.g., "EU1169:Art 22; Annex VIII") and exact KB filenames where relevant ("buyer-generic-eu.md", "refs.md", "TDS: file.pdf").
+- Do NOT invent facts. If the item is present on the label/TDS, mark it OK.
+- Important topics: sales name, ingredient list (descending order), allergen emphasis (Annex II), QUID (Art 22), net quantity, date marking, storage/conditions of use, FBO name/EU address, nutrition table per 100g/100ml in the correct order, language compliance for the country of sale, and claims.
 `;
 
 const HALAL_SYSTEM_PROMPT = `
-You are performing a Halal pre-audit screening on a product label and specs based on halal_rules.md and buyer files where provided.
-Return a JSON array of checks: each { title, status: "ok"|"issue"|"missing", severity: "low"|"medium"|"high", detail, fix, sources[] }.
+You are performing a Halal pre-audit screening based on halal_rules.md and buyer inputs.
+Return ONLY a pure JSON array (no markdown), elements shaped as:
+{ "title":"", "status":"ok|issue|missing", "severity":"low|medium|high", "detail":"", "fix":"", "sources":[] }.
 Consider forbidden ingredients (porcine, alcohol), gelatin/enzymes origin, flavour carriers/solvents (ethanol), processing aids, logo/issuer authenticity, segregation/contamination risk.
-- If nothing problematic is detected, return [].
-- Provide Fix & Sources only for non-OK items; cite "halal_rules.md" or buyer docs where relevant.
+Provide Fix & Sources only for non-OK.
 `;
 
 /* ----------------------- model call helpers ----------------------- */
 async function analyzeEU({ fields, imageDataUrl, pdfText, tdsText, extraRules }) {
   const userParts = [];
-
   const kbText = [
     KB_HOUSE && `House Rules:\n${KB_HOUSE}`,
-    KB_REFS && `EU References:\n${KB_REFS}`,
+    KB_REFS  && `EU References:\n${KB_REFS}`,
     KB_BUYER && `Buyer Generic Rules:\n${KB_BUYER}`
-  ]
-    .filter(Boolean)
-    .join("\n\n");
+  ].filter(Boolean).join("\n\n");
 
-  if (kbText) {
-    userParts.push({
-      type: "text",
-      text: `Use the following guidance and references if relevant:\n${clampText(kbText, 9000)}`
-    });
-  }
-
-  userParts.push({
-    type: "text",
-    text: `Product fields:\n${clampText(JSON.stringify(fields, null, 2), 3000)}`
-  });
-
-  if (extraRules) {
-    userParts.push({
-      type: "text",
-      text: `Client Extra Rules (use if relevant):\n${clampText(extraRules, 3000)}`
-    });
-  }
-  if (tdsText) {
-    userParts.push({
-      type: "text",
-      text: `Extracted TDS text:\n${clampText(tdsText, 6000)}`
-    });
-  }
-  if (pdfText) {
-    userParts.push({
-      type: "text",
-      text: `Extracted Label PDF text:\n${clampText(pdfText, 6000)}`
-    });
-  }
-  if (imageDataUrl) {
-    userParts.push({ type: "image_url", image_url: { url: imageDataUrl } });
-  }
+  if (kbText) userParts.push({ type:"text", text:`Use these references if relevant:\n${clampText(kbText, 9000)}` });
+  userParts.push({ type:"text", text:`Product fields:\n${clampText(JSON.stringify(fields, null, 2), 3000)}` });
+  if (extraRules) userParts.push({ type:"text", text:`Client Extra Rules:\n${clampText(extraRules, 3000)}` });
+  if (tdsText)    userParts.push({ type:"text", text:`TDS extract:\n${clampText(tdsText, 6000)}` });
+  if (pdfText)    userParts.push({ type:"text", text:`Label PDF text:\n${clampText(pdfText, 6000)}` });
+  if (imageDataUrl) userParts.push({ type:"image_url", image_url:{ url:imageDataUrl } });
 
   const resp = await openai.chat.completions.create({
     model: "gpt-4o-mini",
-    temperature: 0.2,
+    temperature: 0.1,
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: userParts },
-      { role: "user", content: "Return ONLY JSON with keys: version, product{name,country_of_sale,languages_provided}, summary, checks[]." }
+      { role: "user", content: "Return only the JSON object—no commentary, no code fences." }
     ]
   });
 
-  const txt = resp.choices?.[0]?.message?.content?.trim() || "{}";
-  try {
-    return JSON.parse(txt);
-  } catch {
-    // Fallback minimal shape
-    return { version: "1.0", product: {}, summary: txt.slice(0, 500), checks: [] };
-  }
+  const raw = resp.choices?.[0]?.message?.content || "{}";
+  return extractJsonObject(raw, false);
 }
 
 async function analyzeHalal({ fields, imageDataUrl, pdfText, tdsText, extraRules }) {
   const parts = [];
   const kb = (KB_HALAL ? `halal_rules.md:\n${KB_HALAL}\n\n` : "") +
              (KB_BUYER ? `buyer-generic-eu.md:\n${KB_BUYER}` : "");
-  if (kb) parts.push({ type: "text", text: clampText(kb, 8000) });
-  parts.push({ type: "text", text: `Fields:\n${clampText(JSON.stringify(fields, null, 2), 3000)}` });
-  if (extraRules) parts.push({ type: "text", text: `Client Extras:\n${clampText(extraRules, 3000)}` });
-  if (tdsText) parts.push({ type: "text", text: `TDS excerpt:\n${clampText(tdsText, 6000)}` });
-  if (pdfText) parts.push({ type: "text", text: `Label PDF excerpt:\n${clampText(pdfText, 6000)}` });
-  if (imageDataUrl) parts.push({ type: "image_url", image_url: { url: imageDataUrl } });
+  if (kb) parts.push({ type:"text", text: clampText(kb, 8000) });
+  parts.push({ type:"text", text: `Fields:\n${clampText(JSON.stringify(fields, null, 2), 3000)}` });
+  if (extraRules) parts.push({ type:"text", text:`Client Extras:\n${clampText(extraRules, 3000)}` });
+  if (tdsText)    parts.push({ type:"text", text:`TDS excerpt:\n${clampText(tdsText, 6000)}` });
+  if (pdfText)    parts.push({ type:"text", text:`Label PDF excerpt:\n${clampText(pdfText, 6000)}` });
+  if (imageDataUrl) parts.push({ type:"image_url", image_url:{ url:imageDataUrl } });
 
   const resp = await openai.chat.completions.create({
     model: "gpt-4o-mini",
-    temperature: 0.2,
+    temperature: 0.1,
     messages: [
       { role: "system", content: HALAL_SYSTEM_PROMPT },
       { role: "user", content: parts },
-      { role: "user", content: "Return ONLY a JSON array of checks." }
+      { role: "user", content: "Return only the JSON array—no commentary, no code fences." }
     ]
   });
 
-  const txt = resp.choices?.[0]?.message?.content?.trim() || "[]";
-  try { return JSON.parse(txt); } catch { return []; }
+  const raw = resp.choices?.[0]?.message?.content || "[]";
+  return extractJsonObject(raw, true);
 }
 
 /* ------------------------ post-processors ------------------------- */
@@ -186,42 +177,32 @@ function normalizeReport(r, fields) {
       name: r?.product?.name || fields?.product_name || "",
       country_of_sale: r?.product?.country_of_sale || fields?.country_of_sale || "",
       languages_provided: Array.isArray(r?.product?.languages_provided)
-        ? r.product.languages_provided
-        : (fields?.languages_provided || [])
+        ? r.product.languages_provided : (fields?.languages_provided || [])
     },
     summary: r?.summary || "",
     checks: Array.isArray(r?.checks) ? r.checks : []
   };
 
-  // force shape for checks
-  report.checks = report.checks.map((c) => ({
+  report.checks = report.checks.map(c => ({
     title: c?.title || "Unlabeled check",
     status: c?.status === "ok" ? "ok" : c?.status === "missing" ? "missing" : "issue",
-    severity: ["low", "medium", "high"].includes(c?.severity) ? c.severity : "medium",
+    severity: ["low","medium","high"].includes(c?.severity) ? c.severity : "medium",
     detail: c?.detail || "",
-    fix: c?.status === "ok" ? "" : c?.fix || "",
-    sources: c?.status === "ok" ? [] : Array.isArray(c?.sources) ? c.sources : []
+    fix: c?.status === "ok" ? "" : (c?.fix || ""),
+    sources: c?.status === "ok" ? [] : (Array.isArray(c?.sources) ? c.sources : [])
   }));
 
-  // scoring + overall
-  let score = 100;
-  let hasHigh = false,
-    hasMedium = false;
+  // scoring
+  let score = 100, hasHigh=false, hasMedium=false;
   for (const c of report.checks) {
     if (c.status !== "ok") {
-      if (c.severity === "high") {
-        score -= 15;
-        hasHigh = true;
-      } else if (c.severity === "medium") {
-        score -= 8;
-        hasMedium = true;
-      } else {
-        score -= 3;
-      }
+      if (c.severity === "high") { score -= 15; hasHigh = true; }
+      else if (c.severity === "medium") { score -= 8; hasMedium = true; }
+      else { score -= 3; }
     }
   }
   score = Math.max(0, Math.min(100, score));
-  const overall_status = hasHigh ? "fail" : hasMedium ? "caution" : "pass";
+  const overall_status = hasHigh ? "fail" : (hasMedium ? "caution" : "pass");
   return { ...report, overall_status, score };
 }
 
@@ -231,11 +212,11 @@ function buildFixPack(report, halalChecks) {
   lines.push(`Generated: ${new Date().toISOString()}`);
   lines.push(`Product: ${report.product?.name || "-"}`);
   lines.push("");
-  const add = (c, prefix = "") => {
+  const add = (c, prefix="") => {
     if (c.status === "ok") return;
     lines.push(`${prefix}${c.title} [${c.severity.toUpperCase()}]`);
     if (c.detail) lines.push(`- ${c.detail}`);
-    if (c.fix) lines.push(`→ Fix: ${c.fix}`);
+    if (c.fix)    lines.push(`→ Fix: ${c.fix}`);
     if (Array.isArray(c.sources) && c.sources.length) lines.push(`Sources: ${c.sources.join("; ")}`);
     lines.push("");
   };
@@ -247,17 +228,14 @@ function buildFixPack(report, halalChecks) {
 function makePdf({ report, halalChecks, fields }) {
   const doc = new PDFDocument({ size: "A4", margin: 36 });
   const bufs = [];
-  doc.on("data", (d) => bufs.push(d));
-  doc.on("error", (e) => console.error("PDF error:", e));
+  doc.on("data", d => bufs.push(d));
+  doc.on("error", e => console.error("PDF error:", e));
 
   doc.fontSize(18).text(`${APP_NAME} — Compliance Assessment`, { align: "left" });
   doc.moveDown(0.3);
-  doc
-    .fontSize(10)
-    .fillColor("#555")
-    .text(
-      `Preliminary analysis based on EU 1169/2011 + KB references. Generated: ${new Date().toISOString()}`
-    );
+  doc.fontSize(10).fillColor("#555").text(
+    `Preliminary analysis based on EU 1169/2011 + KB references. Generated: ${new Date().toISOString()}`
+  );
   doc.moveDown();
 
   // product box
@@ -271,10 +249,7 @@ function makePdf({ report, halalChecks, fields }) {
   doc.moveDown();
 
   doc.fontSize(12).text(`Overall: ${report.overall_status.toUpperCase()}  •  Score: ${report.score}/100`);
-  if (report.summary) {
-    doc.moveDown(0.5);
-    doc.fontSize(10).text(report.summary, { width: 520 });
-  }
+  if (report.summary) { doc.moveDown(0.5); doc.fontSize(10).text(report.summary, { width: 520 }); }
   doc.moveDown();
 
   doc.fontSize(12).text("EU 1169/2011 Checks");
@@ -312,62 +287,48 @@ function makePdf({ report, halalChecks, fields }) {
 
 /* ============================== handler ============================== */
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return sendJson(res, 405, { error: "Use POST" });
-  }
+  if (req.method !== "POST") return sendJson(res, 405, { error: "Use POST" });
 
   try {
-    const body = await readJsonBody(req); // <-- FIX: parse JSON for Node runtime
+    const body = await readJsonBody(req);
     const {
-      product_name,
-      company_name,
-      company_email,
-      country_of_sale,
-      languages_provided = [],
-      shipping_scope,
-      product_category,
-      label_image_data_url,
-      label_pdf_file, // { name, base64: dataurl }
-      tds_file,       // { name, base64: dataurl }
-      reference_docs_text,
-      halal_audit
+      product_name, company_name, company_email,
+      country_of_sale, languages_provided = [],
+      shipping_scope, product_category,
+      label_image_data_url, label_pdf_file, // { name, base64 }
+      tds_file,                              // { name, base64 }
+      reference_docs_text, halal_audit
     } = body || {};
 
     const fields = {
-      product_name,
-      company_name,
-      company_email,
-      country_of_sale,
-      languages_provided,
-      shipping_scope,
-      product_category
+      product_name, company_name, company_email,
+      country_of_sale, languages_provided,
+      shipping_scope, product_category
     };
 
-    /* ---------- extract optional TDS text ---------- */
+    // TDS text (supports PDF via lazy pdf-parse)
     let tdsText = "";
     if (tds_file?.base64) {
       if ((tds_file.name || "").toLowerCase().endsWith(".pdf")) {
-        const pdfParse = (await import("pdf-parse")).default; // lazy import
+        const pdfParse = (await import("pdf-parse")).default;
         const tbuf = safeB64ToBuffer(tds_file.base64);
         const parsed = await pdfParse(tbuf);
         tdsText = parsed.text || "";
       } else {
-        try {
-          tdsText = safeB64ToBuffer(tds_file.base64).toString("utf8");
-        } catch {}
+        try { tdsText = safeB64ToBuffer(tds_file.base64).toString("utf8"); } catch {}
       }
     }
 
-    /* ---------- extract label PDF text if provided ---------- */
+    // Label PDF text
     let labelPdfText = "";
     if (label_pdf_file?.base64) {
-      const pdfParse = (await import("pdf-parse")).default; // lazy import
+      const pdfParse = (await import("pdf-parse")).default;
       const buf = safeB64ToBuffer(label_pdf_file.base64);
       const parsed = await pdfParse(buf);
       labelPdfText = parsed.text || "";
     }
 
-    /* ---------- primary EU analysis ---------- */
+    // Main EU analysis
     const rawReport = await analyzeEU({
       fields,
       imageDataUrl: label_image_data_url || null,
@@ -378,37 +339,36 @@ export default async function handler(req, res) {
 
     let report = normalizeReport(rawReport, fields);
 
-    /* ---------- optional Halal analysis ---------- */
+    // Optional Halal
     let halalChecks = [];
     if (halal_audit) {
-      halalChecks = await analyzeHalal({
+      const hal = await analyzeHalal({
         fields,
         imageDataUrl: label_image_data_url || null,
         pdfText: labelPdfText || null,
         tdsText: tdsText || null,
         extraRules: reference_docs_text || ""
       });
-
-      halalChecks = (Array.isArray(halalChecks) ? halalChecks : []).map((c) => ({
+      halalChecks = (Array.isArray(hal) ? hal : []).map(c => ({
         title: c?.title || "Halal check",
         status: c?.status === "ok" ? "ok" : c?.status === "missing" ? "missing" : "issue",
-        severity: ["low", "medium", "high"].includes(c?.severity) ? c.severity : "medium",
+        severity: ["low","medium","high"].includes(c?.severity) ? c.severity : "medium",
         detail: c?.detail || "",
-        fix: c?.status === "ok" ? "" : c?.fix || "",
-        sources: c?.status === "ok" ? [] : Array.isArray(c?.sources) ? c.sources : []
+        fix: c?.status === "ok" ? "" : (c?.fix || ""),
+        sources: c?.status === "ok" ? [] : (Array.isArray(c?.sources) ? c.sources : [])
       }));
     }
 
-    /* ---------- fix pack + PDF ---------- */
+    // Fix Pack + PDF
     const fixpack_text = buildFixPack(report, halalChecks);
-    const pdf_base64 = makePdf({ report, halalChecks, fields });
+    const pdf_base64   = makePdf({ report, halalChecks, fields });
 
-    /* ---------- email (optional) ---------- */
+    // Email (optional)
     let email_status = "skipped";
     if (process.env.RESEND_API_KEY && company_email) {
       try {
         await resend.emails.send({
-          from: `${APP_NAME} <onboarding@resend.dev>`,
+          from: RESEND_FROM,
           to: company_email,
           subject: `${APP_NAME} — ${fields.product_name || "Your Product"}`,
           html: `<p>Hello ${fields.company_name || ""},</p>
