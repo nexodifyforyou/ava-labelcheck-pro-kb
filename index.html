@@ -1,308 +1,207 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Nexodify’s Label Compliance Preflight — Client Intake</title>
-  <style>
-    :root{
-      --bg:#0c1022;--panel:#0f1530;--panel2:#111736;--line:#1e2a5a;
-      --ink:#eaf0ff;--muted:#a8b3cf;--accent:#4f7dff;--ok:#10b981;--warn:#f59e0b;--fail:#ef4444;
-    }
-    *{box-sizing:border-box}
-    body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial;color:var(--ink);background:#0b1020}
-    .wrap{max-width:1100px;margin:28px auto 120px;padding:0 18px}
-    header{display:flex;align-items:center;gap:12px;margin-bottom:10px}
-    .logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#6aa3ff,#4f7dff 60%,#3b5cff)}
-    h1{margin:0;font-size:26px}
-    .sub{color:var(--muted);margin-top:4px}
-
-    .grid{display:grid;gap:14px}
-    .two{grid-template-columns:1fr 1fr}
-    .full{grid-column:1/-1}
-    @media (max-width:880px){.two{grid-template-columns:1fr}}
-
-    .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px}
-    .card h3{margin:0 0 10px;color:#cfe1ff;font-size:15px}
-
-    label{font-weight:600;font-size:13px;display:block;margin-bottom:6px;color:#cfe1ff}
-    input,textarea,select{width:100%;background:#0f1530;color:var(--ink);border:1px solid #2a3975;border-radius:12px;padding:10px}
-    textarea{min-height:110px}
-    .hint{color:var(--muted);font-size:12px;margin-top:6px}
-
-    .drop{display:flex;align-items:center;justify-content:center;border:1.5px dashed #3550a3;border-radius:12px;padding:16px;background:#0f1530;cursor:pointer;text-align:center}
-    .drop.drag{background:#101a45;border-color:#7aa3ff}
-    .meta{margin-top:8px;color:#cbd8ff;font-size:12px}
-
-    .row{display:flex;gap:16px;flex-wrap:wrap}
-    .kv{min-width:230px}
-
-    .right{display:flex;gap:8px;justify-content:flex-end}
-    .btn{background:var(--accent);color:#fff;border:0;border-radius:12px;padding:12px 16px;font-weight:700;cursor:pointer}
-    .btn.secondary{background:#1a275c}
-    .btn[disabled]{opacity:.7;cursor:not-allowed}
-    .spinner{width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;display:inline-block;margin-right:8px;animation:spin .8s linear infinite;vertical-align:-3px}
-    @keyframes spin{to{transform:rotate(360deg)}}
-
-    .badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:12px;margin-right:8px}
-    .pass{background:var(--ok);color:#052}
-    .caution{background:var(--warn);color:#320}
-    .fail{background:var(--fail);color:#300}
-    .chip{display:inline-block;background:#22306b;border:1px solid #354684;padding:2px 8px;border-radius:999px;font-size:12px;margin-right:6px}
-    .pre{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-  </style>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Nexodify’s Label Compliance Preflight</title>
+<style>
+  :root{--bg:#0b1020;--card:#121833;--ink:#eaf0ff;--muted:#9fb0d7;--line:#1e2a5a;--brand:#4f7dff;--ok:#18c37d;--warn:#ffb020;--bad:#ff4d4d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif}
+  .wrap{max-width:1100px;margin:32px auto;padding:0 16px}
+  h1{margin:0 0 6px;font-size:26px}
+  .tagline{color:var(--muted);margin:0 0 20px}
+  .grid{display:grid;gap:12px}
+  .two{grid-template-columns:1fr 1fr}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+  label{font-weight:600;font-size:13px}
+  input,select,textarea{width:100%;background:#0f1530;border:1px solid #2a3975;border-radius:10px;color:var(--ink);padding:10px}
+  textarea{resize:vertical}
+  .help{color:var(--muted);font-size:12px}
+  .btn{display:inline-block;background:var(--brand);border:0;color:#fff;font-weight:700;border-radius:12px;padding:12px 16px;cursor:pointer;text-decoration:none}
+  .btn[disabled]{opacity:.6;pointer-events:none}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .chip{padding:3px 8px;border-radius:999px;background:#22325e;color:#cbd5ff;font-size:12px}
+  .chip.ok{background:#103d2e;color:#b7f8da}
+  .chip.warn{background:#4a3700;color:#ffe2a8}
+  .chip.bad{background:#4a0e0e;color:#ffb8b8}
+  .checks{padding-left:16px}
+  .cap{font-weight:700;margin:16px 0 8px}
+  .muted{color:var(--muted)}
+</style>
 </head>
 <body>
 <div class="wrap">
-  <header>
-    <div class="logo"></div>
-    <div>
-      <h1>Nexodify’s Label Compliance Preflight</h1>
-      <div class="sub">Cited. Actionable. Production-ready.</div>
-      <div class="sub" style="font-size:12px;opacity:.9">EU 1169/2011 preflight • optional Halal pre-audit • PDF report</div>
-    </div>
-  </header>
+  <h1>Nexodify’s Label Compliance Preflight</h1>
+  <p class="tagline">Cited. Actionable. Production-ready.</p>
 
-  <form id="f" class="grid" onsubmit="return false">
-    <div class="grid two">
-      <div class="card">
-        <h3>Product</h3>
-        <label>Product name</label>
-        <input name="product_name" placeholder="Pasta di Ceci" required/>
-        <div class="grid two" style="margin-top:10px">
-          <div><label>Country of sale</label><input name="country_of_sale" placeholder="Italy" required/></div>
-          <div><label>Languages on label (ISO, comma)</label><input name="languages_provided" placeholder="it,en"/></div>
+  <div class="grid two">
+    <div class="card">
+      <div class="grid two">
+        <div>
+          <label>Product name</label>
+          <input id="product_name" placeholder="Amarene candite sgocciolate">
         </div>
-        <div class="grid two" style="margin-top:10px">
-          <div>
-            <label>Shipping scope</label>
-            <select name="shipping_scope">
-              <option value="local">Local / Domestic</option>
-              <option value="eu">EU Single Market</option>
-              <option value="global">Global</option>
-            </select>
-          </div>
-          <div>
-            <label>Category</label>
-            <select name="product_category">
-              <option value="general">General</option>
-              <option value="confectionery">Confectionery</option>
-              <option value="beverage">Beverage</option>
-              <option value="dairy">Dairy</option>
-            </select>
-          </div>
+        <div>
+          <label>Company name</label>
+          <input id="company_name" placeholder="ITALPROD S.R.L.">
         </div>
       </div>
 
-      <div class="card">
-        <h3>Company</h3>
-        <label>Company name</label>
-        <input name="company_name" placeholder="ACME Foods S.r.l." required/>
-        <label style="margin-top:10px">Company email (report will be sent here)</label>
-        <input name="company_email" placeholder="qa@acme.com; qa2@acme.com" required/>
-        <div class="hint">Multiple emails allowed (comma or semicolon).</div>
+      <div class="grid two">
+        <div>
+          <label>Company email (report will be sent here)</label>
+          <input id="company_email" placeholder="qa@acme.com">
+        </div>
+        <div>
+          <label>Country of sale</label>
+          <input id="country_of_sale" placeholder="Italy">
+        </div>
+      </div>
+
+      <div class="grid two">
+        <div>
+          <label>Languages on label (ISO, comma)</label>
+          <input id="languages_provided" placeholder="it,en">
+        </div>
+        <div>
+          <label>Shipping scope</label>
+          <select id="shipping_scope">
+            <option>Local / Domestic</option>
+            <option>EU Single Market</option>
+            <option>Global</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid two">
+        <div>
+          <label>Label file (JPG/PNG or PDF)</label>
+          <input id="label_file" type="file" accept="image/*,application/pdf">
+          <div class="help">Front-on, readable images work best. PDF text is parsed.</div>
+        </div>
+        <div>
+          <label>Optional TDS file (.pdf, .docx, .md, .txt)</label>
+          <input id="tds_file" type="file" accept="application/pdf,.doc,.docx,.md,.txt">
+        </div>
+      </div>
+
+      <label>Extra rules / buyer requirements (optional)</label>
+      <textarea id="reference_docs_text" rows="4" placeholder="Paste internal spec, buyer rules, claims substantiation..."></textarea>
+      <div class="help">If omitted, the engine uses EU baseline and our internal database.</div>
+
+      <div class="row" style="margin:10px 0 2px">
+        <input id="halal_audit" type="checkbox">
+        <label for="halal_audit">Enable Halal pre-audit</label>
+        <span class="help">Adds checks for forbidden ingredients, carriers/solvents, logo/issuer, segregation.</span>
+      </div>
+
+      <div class="row" style="margin-top:10px">
+        <button id="run" class="btn">Generate Preflight</button>
+        <button id="reset" class="btn" style="background:#2a3975">Reset</button>
       </div>
     </div>
 
-    <div class="grid two">
-      <div class="card">
-        <h3>Label file (JPG/PNG or PDF)</h3>
-        <div id="labelDrop" class="drop">Drag &amp; drop or click to choose</div>
-        <input id="labelInput" type="file" accept="image/*,.pdf" style="display:none" required/>
-        <div class="meta" id="labelMeta">No file chosen.</div>
-        <div id="labelPreview" class="hint"></div>
-        <div class="hint">Front-on, readable images work best. PDF is parsed for text only.</div>
+    <div class="card" id="results" style="display:none">
+      <div class="row" id="chips"></div>
+      <div id="summary" class="muted" style="margin:8px 0 12px"></div>
+
+      <div class="row muted" style="gap:16px;margin-bottom:8px">
+        <div><b>Name:</b> <span id="pname">-</span></div>
+        <div><b>Country:</b> <span id="pcountry">-</span></div>
+        <div><b>Languages:</b> <span id="plangs">-</span></div>
       </div>
 
-      <div class="card">
-        <h3>Optional TDS (.pdf, .docx, .md, .txt)</h3>
-        <div id="tdsDrop" class="drop">Drag &amp; drop or click to attach</div>
-        <input id="tdsInput" type="file" accept=".pdf,.docx,.md,.txt" style="display:none"/>
-        <div class="meta" id="tdsMeta">No file chosen.</div>
-      </div>
-    </div>
+      <div class="cap">EU 1169/2011 Checks</div>
+      <div class="checks" id="checks"></div>
 
-    <div class="card full">
-      <h3>Extra rules / buyer requirements (optional)</h3>
-      <textarea name="reference_docs_text" placeholder="Paste internal spec, buyer rules, claims substantiation..."></textarea>
-      <div class="hint">If omitted, the engine uses EU baseline and our internal database.</div>
+      <div class="cap">Downloads</div>
+      <div id="downloads" class="row"></div>
     </div>
-
-    <div class="card full" style="display:flex;align-items:center;gap:12px">
-      <h3 style="margin:0">Options</h3>
-      <label style="display:flex;align-items:center;gap:10px;margin-left:16px">
-        <input type="checkbox" name="halal_audit"/> Enable Halal pre-audit
-      </label>
-      <div class="hint">Adds checks for forbidden ingredients, carriers/solvents, logo/issuer, segregation.</div>
-    </div>
-
-    <div class="right full">
-      <button class="btn secondary" id="resetBtn" type="button">Reset</button>
-      <button class="btn" id="goBtn" type="button">Generate Preflight</button>
-    </div>
-  </form>
-
-  <div id="out" class="grid" style="margin-top:18px"></div>
+  </div>
 </div>
 
 <script>
-const $ = s => document.querySelector(s);
-const out = $('#out'), goBtn = $('#goBtn'), resetBtn = $('#resetBtn');
-const labelDrop = $('#labelDrop'), labelInput = $('#labelInput'), labelMeta = $('#labelMeta'), labelPreview = $('#labelPreview');
-const tdsDrop = $('#tdsDrop'), tdsInput = $('#tdsInput'), tdsMeta = $('#tdsMeta');
-const form = document.getElementById('f');
+const $ = (id)=>document.getElementById(id);
+const toBase64 = (file)=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file);});
 
-function setLoading(b){ goBtn.disabled=b; goBtn.innerHTML=b?'<span class="spinner"></span>Generating…':'Generate Preflight'; }
-function esc(s){ return (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+$("reset").onclick = () => location.reload();
 
-function bindDrop(dropEl, inputEl, metaEl, previewEl){
-  dropEl.addEventListener('click', ()=>inputEl.click());
-  ['dragenter','dragover'].forEach(ev=>dropEl.addEventListener(ev, e=>{e.preventDefault(); dropEl.classList.add('drag');}));
-  ['dragleave','drop'].forEach(ev=>dropEl.addEventListener(ev, e=>{e.preventDefault(); dropEl.classList.remove('drag');}));
-  dropEl.addEventListener('drop', e=>{
-    const f = e.dataTransfer.files && e.dataTransfer.files[0];
-    if(!f) return;
-    inputEl.files = e.dataTransfer.files;
-    metaEl.textContent = f.name + ' (' + Math.round(f.size/1024) + ' KB)';
-    if(previewEl) previewFile(f, previewEl);
-  });
-  inputEl.addEventListener('change', ()=>{
-    const f = inputEl.files && inputEl.files[0];
-    if(!f){ metaEl.textContent='No file chosen.'; if(previewEl) previewEl.innerHTML=''; return; }
-    metaEl.textContent = f.name + ' (' + Math.round(f.size/1024) + ' KB)';
-    if(previewEl) previewFile(f, previewEl);
-  });
-}
-function previewFile(file, el){
-  if(file.type.startsWith('image/')){
-    const r=new FileReader();
-    r.onload=()=>{ el.innerHTML='<div class="hint">Preview:</div><img src="'+r.result+'" style="max-width:220px;border-radius:10px;margin-top:6px;border:1px solid #2a3975"/>'; };
-    r.readAsDataURL(file);
-  } else {
-    el.innerHTML='<span class="hint">Preview: PDF/Doc selected</span>';
-  }
-}
-bindDrop(labelDrop,labelInput,labelMeta,labelPreview);
-bindDrop(tdsDrop,tdsInput,tdsMeta,null);
+$("run").onclick = async () => {
+  const btn = $("run");
+  btn.disabled = true;
+  const f = {
+    product_name: $("product_name").value.trim(),
+    company_name: $("company_name").value.trim(),
+    company_email: $("company_email").value.trim(),
+    country_of_sale: $("country_of_sale").value.trim(),
+    languages_provided: $("languages_provided").value.split(",").map(s=>s.trim()).filter(Boolean),
+    shipping_scope: $("shipping_scope").value,
+    product_category: "General",
+    reference_docs_text: $("reference_docs_text").value,
+    halal_audit: $("halal_audit").checked
+  };
 
-async function fileToDataUrlImage(file){
-  const fr=new FileReader();
-  const dataUrl = await new Promise((res,rej)=>{ fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(file); });
-  const img = await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=dataUrl; });
-  let {width,height}=img; const max=1600;
-  if(width>max||height>max){ const s=Math.min(max/width,max/height); width=Math.round(width*s); height=Math.round(height*s); }
-  const c=document.createElement('canvas'); c.width=width; c.height=height;
-  c.getContext('2d').drawImage(img,0,0,width,height);
-  return c.toDataURL('image/jpeg',0.85);
-}
-function fileToBase64(file){
-  return new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(file); });
-}
-
-function renderChecks(title, checks){
-  let html = `<div class="card full"><h3>${title}</h3>`;
-  if(!checks || !checks.length){ html += `<div class="hint">No items.</div>`; }
-  for(const c of (checks||[])){
-    const icon = c.status === 'ok' ? '✅' : (c.status === 'missing' ? '⛔' : '⚠️');
-    html += `<div style="margin:10px 0">
-      <div><b>${icon} ${esc(c.title)}</b>
-        <span class="chip">${esc(c.status.toUpperCase())}</span>
-        <span class="chip">${esc(c.severity)}</span>
-      </div>`;
-    if(c.detail) html += `<div class="pre" style="color:#cbd8ff;margin-top:4px">• ${esc(c.detail)}</div>`;
-    if(c.status !== 'ok'){
-      if(c.fix) html += `<div class="pre" style="color:#a6f5c9;margin-top:4px">→ Fix: ${esc(c.fix)}</div>`;
-      if(Array.isArray(c.sources) && c.sources.length)
-        html += `<div class="pre" style="color:#bdc8ff;margin-top:2px">Sources: ${esc(c.sources.join('; '))}</div>`;
+  const labelFile = $("label_file").files[0];
+  if (labelFile) {
+    const b64 = await toBase64(labelFile);
+    if (labelFile.type === "application/pdf") {
+      f.label_pdf_file = { name: labelFile.name, base64: b64 };
     } else {
-      if(Array.isArray(c.sources) && c.sources.length)
-        html += `<div class="pre" style="color:#8ab6ff;margin-top:2px">OK • Sources: ${esc(c.sources.join('; '))}</div>`;
+      f.label_image_data_url = b64;
     }
-    html += `</div>`;
   }
-  html += `</div>`;
-  return html;
-}
+  const tds = $("tds_file").files[0];
+  if (tds) f.tds_file = { name: tds.name, base64: await toBase64(tds) };
 
-async function generate(){
-  setLoading(true); out.innerHTML='';
-  const fd = new FormData(form); const payload = Object.fromEntries(fd.entries());
-  payload.languages_provided = (payload.languages_provided||'').split(',').map(s=>s.trim()).filter(Boolean);
-  payload.halal_audit = !!fd.get('halal_audit');
+  const res = await fetch("/api/labelcheck", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(f) });
+  const data = await res.json();
 
-  const label = labelInput.files[0];
-  if(!label){ alert('Please choose a label file.'); setLoading(false); return; }
-  if(label.type === 'application/pdf' || /\.pdf$/i.test(label.name)){
-    payload.label_pdf_file = { name: label.name, base64: await fileToBase64(label) };
+  $("results").style.display = "block";
+
+  // chips
+  const chips = [];
+  const overall = (data.report?.overall_status || "caution").toUpperCase();
+  const score = data.score ?? data.report?.score ?? "-";
+  chips.push(`<span class="chip ${overall==="PASS"?"ok":overall==="FAIL"?"bad":"warn"}">${overall}</span>`);
+  chips.push(`<span class="chip">Score ${score}/100</span>`);
+  chips.push(`<span class="chip">Halal: ${data.halal_audit ? "ON" : "OFF"}</span>`);
+  chips.push(`<span class="chip">Email: ${data.email_status || "-"}</span>`);
+  $("chips").innerHTML = chips.join("");
+
+  // summary + product quick info
+  $("summary").textContent = data.report?.summary || "";
+  $("pname").textContent    = data.report?.product?.name || "-";
+  $("pcountry").textContent = data.report?.product?.country_of_sale || "-";
+  $("plangs").textContent   = (data.report?.product?.languages_provided || []).join(", ") || "-";
+
+  // checks
+  const chk = data.report?.checks || [];
+  $("checks").innerHTML = chk.map(c => {
+    const tone = c.status==="ok" ? "ok" : (c.severity==="high"?"bad":c.severity==="medium"?"warn":"");
+    return `
+      <div class="row" style="align-items:flex-start;gap:10px;margin:6px 0">
+        <span class="chip ${tone}">${(c.status||"").toUpperCase()} ${c.severity?("· "+c.severity):""}</span>
+        <div style="flex:1">
+          <div><b>${c.title || "-"}</b></div>
+          ${c.detail ? `<div>${c.detail}</div>` : ""}
+          ${c.fix && c.status!=="ok" ? `<div>→ <i>${c.fix}</i></div>` : ""}
+          ${Array.isArray(c.sources)&&c.sources.length ? `<div class="muted" style="font-size:12px">Sources: ${c.sources.join("; ")}</div>` : ""}
+        </div>
+      </div>`;
+  }).join("");
+
+  // downloads
+  const dw = [];
+  if (data.pdf_base64 && (data.pdf_len||0) > 1000) {
+    dw.push(`<a class="btn" download="Preflight_Report.pdf" href="data:application/pdf;base64,${data.pdf_base64}">Download Report (PDF)</a>`);
   } else {
-    payload.label_image_data_url = await fileToDataUrlImage(label);
+    dw.push(`<span class="muted">PDF unavailable${data.pdf_error?` — ${data.pdf_error}`:""}</span>`);
   }
-  const tds = tdsInput.files[0];
-  if(tds) payload.tds_file = { name: tds.name, base64: await fileToBase64(tds) };
+  $("downloads").innerHTML = dw.join("");
 
-  try{
-    const r = await fetch('/api/labelcheck', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-    const raw = await r.text(); let data;
-    try{ data = JSON.parse(raw); }catch{ out.innerHTML = '<div class="card">Server error:<pre class="pre">'+esc(raw)+'</pre></div>'; setLoading(false); return; }
-    if(data.error) throw new Error(data.error);
-
-    const status = data.report?.overall_status || 'caution';
-    const score  = data.score ?? '-';
-    const prod   = data.report?.product || {};
-    let html = `<div class="card full">
-      <div class="badge ${status}">${status.toUpperCase()}</div>
-      <span class="chip">Score ${score}/100</span>
-      <span class="chip">Halal: ${data.halal_audit?'ON':'OFF'}</span>
-      ${data.email_status ? `<span class="chip">Email: ${esc(data.email_status)}</span>` : ''}
-      <div class="row" style="margin-top:10px">
-        <div class="kv"><b>Name:</b> ${esc(prod.name)||'-'}</div>
-        <div class="kv"><b>Country:</b> ${esc(prod.country_of_sale)||'-'}</div>
-        <div class="kv"><b>Languages:</b> ${(prod.languages_provided||[]).join(', ')||'-'}</div>
-      </div>
-      ${data.report?.summary ? `<div class="pre" style="margin-top:8px">${esc(data.report.summary)}</div>` : ''}
-    </div>`;
-
-    html += renderChecks('EU 1169/2011 Checks', data.report?.checks);
-    if(Array.isArray(data.halal_checks) && data.halal_checks.length)
-      html += renderChecks('Halal Pre-Audit', data.halal_checks);
-
-    // Downloads + diagnostics
-    html += `<div class="card full" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-      <div>
-        <div class="sub">Downloads</div>
-        ${data.pdf_len && data.pdf_len > 1000 ? 
-          `<div class="hint">PDF ready (${Math.round(data.pdf_len/1024)} KB)</div>` :
-          `<div class="hint">PDF unavailable ${data.pdf_error ? '— ' + esc(data.pdf_error) : ''}</div>`
-        }
-      </div>
-      <div>
-        ${data.pdf_len && data.pdf_len > 1000 ? `
-          <a download="Preflight_Report.pdf" href="data:application/pdf;base64,${data.pdf_base64}">
-            <button class="btn" type="button">Download Report (PDF)</button>
-          </a>` : ``}
-      </div>
-    </div>`;
-
-    out.innerHTML = html;
-    out.scrollIntoView({behavior:'smooth', block:'start'});
-  }catch(e){
-    out.innerHTML = '<div class="card"><h3>Error</h3><div class="pre">'+esc(e?.message||e)+'</div></div>';
-  }finally{
-    setLoading(false);
-  }
-}
-
-async function resetAll(){
-  form.reset(); out.innerHTML='';
-  labelInput.value=""; tdsInput.value="";
-  labelMeta.textContent='No file chosen.'; tdsMeta.textContent='No file chosen.';
-  labelPreview.innerHTML='';
-}
-
-document.addEventListener('DOMContentLoaded', ()=>{
-  goBtn.addEventListener('click', generate);
-  resetBtn.addEventListener('click', resetAll);
-});
+  btn.disabled = false;
+};
 </script>
 </body>
 </html>
