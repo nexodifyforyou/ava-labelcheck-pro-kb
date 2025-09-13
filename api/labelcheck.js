@@ -1,8 +1,8 @@
 // api/labelcheck.js
 export const config = { runtime: "nodejs" };
+
 /* ========= BRAND & EMAIL ========= */
 const APP_NAME = "Nexodify’s Label Compliance Preflight";
-// Default sender (works for Resend test emails / verified domains)
 const DEFAULT_FROM = `${APP_NAME} <onboarding@resend.dev>`;
 /* ================================= */
 
@@ -18,14 +18,13 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const resend = new Resend(process.env.RESEND_API_KEY ?? "");
 const RESEND_FROM = process.env.RESEND_FROM || DEFAULT_FROM;
 
-/* ====== small helpers ====== */
+/* ====== util ====== */
 function sendJson(res, status, obj) {
   res.status(status);
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Cache-Control", "no-store");
   res.end(JSON.stringify(obj));
 }
-
 async function readJsonBody(req) {
   return new Promise((resolve, reject) => {
     let data = "";
@@ -37,41 +36,24 @@ async function readJsonBody(req) {
     req.on("error", reject);
   });
 }
-
-function clamp(s, n) {
-  if (!s) return "";
-  s = String(s);
-  return s.length > n ? s.slice(0, n) : s;
-}
-
-function b64FromDataUrl(dataUrl) {
-  if (!dataUrl) return "";
-  const i = dataUrl.indexOf(",");
-  return i >= 0 ? dataUrl.slice(i + 1) : dataUrl;
-}
-
+function clamp(s, n) { if (!s) return ""; s = String(s); return s.length > n ? s.slice(0, n) : s; }
+function b64FromDataUrl(dataUrl) { if (!dataUrl) return ""; const i = dataUrl.indexOf(","); return i >= 0 ? dataUrl.slice(i + 1) : dataUrl; }
 function extractJson(content, wantArray = false) {
   if (!content) return wantArray ? [] : {};
   let t = String(content).trim();
   const m = t.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
   if (m) { try { return JSON.parse(m[1]); } catch {} }
   try { return JSON.parse(t); } catch {}
-  const open = wantArray ? "[" : "{";
-  const close = wantArray ? "]" : "}";
+  const open = wantArray ? "[" : "{"; const close = wantArray ? "]" : "}";
   const s = t.indexOf(open), e = t.lastIndexOf(close);
-  if (s !== -1 && e !== -1 && e > s) {
-    try { return JSON.parse(t.slice(s, e + 1)); } catch {}
-  }
+  if (s !== -1 && e !== -1 && e > s) { try { return JSON.parse(t.slice(s, e + 1)); } catch {} }
   return wantArray ? [] : {};
 }
 
-/* ====== KB loading (optional) ====== */
+/* ====== KB ====== */
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-function readIf(rel) {
-  try { return fs.readFileSync(path.join(__dirname, "..", rel), "utf8"); }
-  catch { return ""; }
-}
+function readIf(rel) { try { return fs.readFileSync(path.join(__dirname, "..", rel), "utf8"); } catch { return ""; } }
 const KB_HOUSE = readIf("kb/house_rules.md");
 const KB_REFS  = readIf("kb/refs.md");
 const KB_BUYER = readIf("kb/buyer-generic-eu.md");
@@ -91,16 +73,13 @@ Return ONLY pure JSON (no markdown fences). Shape:
 }
 Rules:
 - Be precise. If unsure, mark as "missing".
-- Include Fix & Sources only for non-OK, but for OK items add a short "detail" and a compact "sources" entry.
-- Use concise citations: "EU1169:Art 22; Annex VIII" or KB filenames: "buyer-generic-eu.md", "refs.md", "TDS: file.pdf".
-- Core checks: Sales name, Ingredient order, Annex II allergen emphasis, QUID (Art 22), Net quantity, Date marking, Storage/use, FBO name/EU address, Nutrition declaration order per 100g/100ml, Language for country of sale, Claims.
+- Include Fix & Sources for non-OK; for OK items include short "detail" and 1 compact "sources" entry.
+- Citations: "EU1169:Art 22; Annex VIII" or KB filenames "buyer-generic-eu.md", "refs.md", "TDS:file.pdf".
+- Core checks: Sales name, Ingredient order, Annex II allergen emphasis, QUID (Art 22), Net quantity, Date marking, Storage/use, FBO name/EU address, Nutrition declaration order per 100g/100ml, Language, Claims.
 `;
-
 const HALAL_PROMPT = `
-You are performing a Halal pre-audit screening based on halal_rules.md and buyer inputs.
-Return ONLY a pure JSON array.
-Each item: { "title":"", "status":"ok|issue|missing", "severity":"low|medium|high", "detail":"", "fix":"", "sources":[] }.
-Consider forbidden ingredients (porcine, alcohol), gelatin/enzymes origin, carriers/solvents (ethanol), processing aids, logo/issuer authenticity, segregation risk.
+Halal pre-audit. Return ONLY a pure JSON array of {title,status,severity,detail,fix,sources}.
+Check: forbidden ingredients (porcine, alcohol), gelatin/enzymes origin, ethanol carriers/solvents, processing aids, logo/issuer authenticity, segregation risk.
 `;
 
 /* ====== OpenAI calls ====== */
@@ -130,7 +109,6 @@ async function askEU({ fields, imageDataUrl, labelPdfText, tdsText, extraText })
   });
   return extractJson(r.choices?.[0]?.message?.content || "{}", false);
 }
-
 async function askHalal({ fields, imageDataUrl, labelPdfText, tdsText, extraText }) {
   const parts = [];
   const kb = (KB_HALAL ? `halal_rules.md:\n${KB_HALAL}\n\n` : "") + (KB_BUYER ? `buyer-generic-eu.md:\n${KB_BUYER}` : "");
@@ -160,81 +138,153 @@ const COUNTRY_LANG = {
   sweden: "sv", finland: "fi", poland: "pl", romania: "ro", greece: "el",
   czechia: "cs", slovakia: "sk", slovenia: "sl", hungary: "hu", ireland: "en",
   "united kingdom": "en"
-};
+
+/* ====== deterministic checks (canonical + dedupe) ====== */
 
 function keywordFromName(name) {
   if (!name) return "";
-  const stop = new Set(["di","de","al","alla","allo","candite","canditi","sgocciolate","sgocciolato","sciroppo","glucosio","regolatore","acido","concentrato"]);
-  const words = name.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu," ").split(/\s+/).filter(Boolean);
+  const stop = new Set([
+    "di","de","al","alla","allo",
+    "candite","canditi","sgocciolate","sgocciolato",
+    "sciroppo","glucosio","regolatore","acido","concentrato"
+  ]);
+  const words = String(name).toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu," ")
+    .split(/\s+/).filter(Boolean);
   for (const w of words) if (!stop.has(w) && w.length > 2) return w;
   return words[0] || "";
 }
 
-function upsert(checks, title, make) {
-  const idx = checks.findIndex(c => (c?.title || "").toLowerCase() === title.toLowerCase());
-  if (idx >= 0) checks[idx] = make(checks[idx]);
-  else checks.push(make({ title, status: "issue", severity: "medium", detail: "", fix: "", sources: [] }));
+const COUNTRY_LANG = {
+  italy: "it", germany: "de", france: "fr", spain: "es", portugal: "pt",
+  netherlands: "nl", belgium: "nl", austria: "de", denmark: "da",
+  sweden: "sv", finland: "fi", poland: "pl", romania: "ro", greece: "el",
+  czechia: "cs", slovakia: "sk", slovenia: "sl", hungary: "hu", ireland: "en",
+  "united kingdom": "en"
+};
+
+function idxAllLike(checks, key) {
+  const k = key.toLowerCase();
+  const idxs = [];
+  checks.forEach((c,i) => {
+    const t = (c?.title || "").toLowerCase();
+    if (t.includes(k)) idxs.push(i);
+  });
+  return idxs;
+}
+function worstSeverity(a,b){
+  const ord = { low:1, medium:2, high:3 };
+  return (ord[a||"low"] >= ord[b||"low"]) ? a : b;
+}
+function dedupeAndCanonicalize(checks, key, canonicalTitle, preferredCheck) {
+  const idxs = idxAllLike(checks, key);
+  if (!idxs.length) {
+    checks.push({ ...preferredCheck, title: canonicalTitle });
+    return;
+  }
+  // Merge all found into one, prefer the deterministic "preferredCheck"
+  const first = idxs[0];
+  let merged = { title: canonicalTitle, status: "ok", severity: "low", detail: "", fix: "", sources: [] };
+
+  for (const i of idxs) {
+    const c = checks[i] || {};
+    merged.status  = (c.status !== "ok" || merged.status !== "ok") ? (c.status === "missing" ? "missing" : "issue") : "ok";
+    merged.severity = worstSeverity(merged.severity, c.severity || "low");
+    if (c.detail) merged.detail = merged.detail ? (merged.detail + "  • " + c.detail) : c.detail;
+    if (c.fix)    merged.fix    = merged.fix    ? (merged.fix    + "  • " + c.fix)    : c.fix;
+    if (Array.isArray(c.sources)) {
+      merged.sources = Array.from(new Set([...(merged.sources||[]), ...c.sources]));
+    }
+  }
+
+  // Deterministic preferred check wins (override status/severity/detail/fix if it is not 'ok')
+  if (preferredCheck && preferredCheck.status && preferredCheck.status !== "ok") {
+    merged = {
+      ...merged,
+      status: preferredCheck.status,
+      severity: preferredCheck.severity || merged.severity,
+      detail: preferredCheck.detail || merged.detail,
+      fix: preferredCheck.fix || merged.fix,
+      sources: Array.from(new Set([...(merged.sources||[]), ...(preferredCheck.sources||[])]))
+    };
+  } else if (preferredCheck && preferredCheck.status === "ok") {
+    // If deterministic says OK and merged had 'ok', keep OK; if merged had issue, keep issue.
+    if (merged.status === "ok") {
+      merged = {
+        ...merged,
+        status: "ok",
+        severity: "low",
+        detail: preferredCheck.detail || merged.detail,
+        sources: Array.from(new Set([...(merged.sources||[]), ...(preferredCheck.sources||[])]))
+      };
+    }
+  }
+
+  // Replace first, remove others
+  checks[first] = merged;
+  for (let j = idxs.length - 1; j >= 1; j--) checks.splice(idxs[j], 1);
 }
 
 function enforce(report, fields, joinedText) {
-  const checks = Array.isArray(report.checks) ? report.checks : [];
+  report.checks = Array.isArray(report.checks) ? report.checks : [];
 
-  // Language compliance
+  // --- Language compliance (deterministic) ---
   const need = COUNTRY_LANG[(fields.country_of_sale||"").toLowerCase()];
+  let langPreferred = null;
   if (need) {
     const have = Array.isArray(report.product?.languages_provided)
       ? report.product.languages_provided.map(x=>String(x||"").toLowerCase())
       : (fields.languages_provided||[]).map(x=>String(x||"").toLowerCase());
+
     if (!have.includes(need)) {
-      upsert(checks, "Language Compliance", () => ({
+      langPreferred = {
         title: "Language Compliance",
         status: "issue",
         severity: "medium",
         detail: `Primary language "${need}" required for ${fields.country_of_sale} not present.`,
         fix: `Add mandatory particulars in "${need}" for sale in ${fields.country_of_sale}.`,
         sources: ["EU1169:Art 15"]
-      }));
+      };
     } else {
-      upsert(checks, "Language Compliance", () => ({
+      langPreferred = {
         title: "Language Compliance",
         status: "ok",
         severity: "low",
         detail: `Includes "${need}" for sale in ${fields.country_of_sale}.`,
         fix: "",
         sources: ["EU1169:Art 15"]
-      }));
+      };
     }
+    dedupeAndCanonicalize(report.checks, "language", "Language Compliance", langPreferred);
   }
 
-  // QUID
+  // --- QUID (deterministic) ---
   const token = keywordFromName(fields.product_name || report.product?.name || "");
   if (token) {
     const quidRegex = new RegExp(`${token}\\s*[^\\n]{0,40}?\\d{1,3}\\s*%`, "i");
     const ok = quidRegex.test(joinedText || "");
-    if (!ok) {
-      upsert(checks, "QUID", () => ({
-        title: "QUID",
-        status: "issue",
-        severity: "high",
-        detail: `Sales name highlights "${token}", but no percentage (%) is found near sales name or in the ingredients list.`,
-        fix: `Declare the percentage of "${token}" (e.g., "${token} 60%") near the sales name or in the ingredients list.`,
-        sources: ["EU1169:Art 22; Annex VIII"]
-      }));
-    } else {
-      upsert(checks, "QUID", () => ({
-        title: "QUID",
-        status: "ok",
-        severity: "low",
-        detail: `Percentage for "${token}" is present.`,
-        fix: "",
-        sources: ["EU1169:Art 22; Annex VIII"]
-      }));
-    }
+    const quidPreferred = ok ? {
+      title: "QUID",
+      status: "ok",
+      severity: "low",
+      detail: `Percentage for "${token}" is present.`,
+      fix: "",
+      sources: ["EU1169:Art 22; Annex VIII"]
+    } : {
+      title: "QUID",
+      status: "issue",
+      severity: "high",
+      detail: `Sales name highlights "${token}", but no percentage (%) is found near sales name or in the ingredients list.`,
+      fix: `Declare the percentage of "${token}" (e.g., "${token} 60%") near the sales name or in the ingredients list.`,
+      sources: ["EU1169:Art 22; Annex VIII"]
+    };
+    // Canonical title = "QUID"; this collapses model variants like "QUID (Art 22)" into one line
+    dedupeAndCanonicalize(report.checks, "quid", "QUID", quidPreferred);
   }
 
-  report.checks = checks;
   return report;
 }
+
 
 /* ====== scoring ====== */
 function recomputeScore(report) {
@@ -253,30 +303,21 @@ function recomputeScore(report) {
   return { score, overall };
 }
 
-/* ====== PDF (styled) ====== */
-function addHeader(doc, title) {
-  doc.rect(36, 36, 523, 42).fill("#0f1530");
-  doc.fill("#eaf0ff").fontSize(16).text(title, 44, 48, { width: 510, align: "left" });
-  doc.moveDown(2).fill("#000");
-}
-
-function addFoot(doc) {
-  doc.moveDown(1.0);
-  doc.fontSize(8).fill("#667").text(
-    "This preflight is an automated, best-effort screening based on the inputs provided and public/KB references. "+
-    "It is not legal advice or a conclusive compliance opinion. Professional review is recommended.",
-    { width: 520 }
-  );
-  doc.fill("#000");
-}
-
-function makePdf({ report, halalChecks, fields }) {
+/* ====== PDF: main + fallback ====== */
+function buildPdfBase64(report, halalChecks, fields) {
   const doc = new PDFDocument({ size: "A4", margin: 36 });
   const bufs = [];
+  let errorMsg = "";
   doc.on("data", d => bufs.push(d));
-  doc.on("error", e => console.error("PDF error:", e));
+  doc.on("error", e => { errorMsg = e?.message || String(e); });
 
-  addHeader(doc, `${APP_NAME} — Compliance Report`);
+  const head = (title) => {
+    doc.rect(36, 36, 523, 42).fill("#0f1530");
+    doc.fill("#eaf0ff").fontSize(16).text(title, 44, 48, { width: 510 });
+    doc.moveDown(2).fill("#000");
+  };
+
+  head(`${APP_NAME} — Compliance Report`);
   doc.fontSize(10).fill("#333").text(`Generated: ${new Date().toISOString()}`);
   doc.moveDown(0.5).text(`Company: ${fields.company_name || "-"}`);
   const p = report.product || {};
@@ -302,7 +343,7 @@ function makePdf({ report, halalChecks, fields }) {
 
   if (Array.isArray(halalChecks) && halalChecks.length) {
     doc.addPage();
-    addHeader(doc, "Halal Pre-Audit");
+    head("Halal Pre-Audit");
     doc.fontSize(10).fill("#000");
     for (const c of halalChecks) {
       doc.fill(c.status === "ok" ? "#0a7" : c.severity === "high" ? "#c00" : c.severity === "medium" ? "#c70" : "#000")
@@ -313,16 +354,13 @@ function makePdf({ report, halalChecks, fields }) {
       if (Array.isArray(c.sources) && c.sources.length) doc.text(`Sources: ${c.sources.join("; ")}`);
       doc.moveDown(0.5);
     }
-    addFoot(doc);
   }
 
-  // Fix Pack page
   doc.addPage();
-  addHeader(doc, "Fix Pack (copy-paste suggestions)");
+  head("Fix Pack (copy-paste suggestions)");
   doc.fontSize(10).fill("#000");
   for (const c of report.checks || []) {
     if (c.status === "ok") {
-      // Still list OK with source
       doc.fill("#0a7").text(`✓ ${c.title} — OK`);
       if (Array.isArray(c.sources) && c.sources.length) doc.fill("#555").text(`Sources: ${c.sources.join("; ")}`);
       doc.fill("#000").moveDown(0.3);
@@ -346,11 +384,27 @@ function makePdf({ report, halalChecks, fields }) {
       doc.moveDown(0.4);
     }
   }
-  addFoot(doc);
+  doc.moveDown(1.0);
+  doc.fontSize(8).fill("#667").text(
+    "This preflight is an automated, best-effort screening based on inputs and public/KB references. "+
+    "It is not legal advice or a conclusive compliance opinion. Professional review is recommended.",
+    { width: 520 }
+  );
+  doc.fill("#000");
 
   doc.end();
   const pdfBuffer = Buffer.concat(bufs);
-  return pdfBuffer.toString("base64");
+  return { base64: pdfBuffer.toString("base64"), error: errorMsg };
+}
+
+function buildFallbackPdfBase64(message = "Report generated without full details.") {
+  const doc = new PDFDocument({ size: "A4", margin: 36 });
+  const bufs = [];
+  doc.on("data", d => bufs.push(d));
+  doc.fontSize(16).text(APP_NAME, { underline: true });
+  doc.moveDown().fontSize(12).text(message);
+  doc.end();
+  return Buffer.concat(bufs).toString("base64");
 }
 
 /* ====== handler ====== */
@@ -374,7 +428,7 @@ export default async function handler(req, res) {
       shipping_scope, product_category
     };
 
-    // Parse TDS if PDF, else use as text
+    // TDS parse
     let tdsText = "";
     if (tds_file?.base64) {
       if ((tds_file.name || "").toLowerCase().endsWith(".pdf")) {
@@ -386,8 +440,7 @@ export default async function handler(req, res) {
         try { tdsText = Buffer.from(b64FromDataUrl(tds_file.base64), "base64").toString("utf8"); } catch {}
       }
     }
-
-    // Label PDF → text (if provided as PDF)
+    // Label PDF → text
     let labelPdfText = "";
     if (label_pdf_file?.base64) {
       const pdfParse = (await import("pdf-parse")).default;
@@ -396,7 +449,7 @@ export default async function handler(req, res) {
       labelPdfText = parsed.text || "";
     }
 
-    // 1st pass (LLM)
+    // 1st pass
     const raw = await askEU({
       fields,
       imageDataUrl: label_image_data_url || null,
@@ -429,12 +482,12 @@ export default async function handler(req, res) {
     const joined = `${(labelPdfText||"")}\n${(tdsText||"")}\n${(reference_docs_text||"")}`.toLowerCase();
     enforce(report, fields, joined);
 
-    // Recompute score/overall
+    // Score + overall
     const { score, overall } = recomputeScore(report);
     report.score = score;
     report.overall_status = overall;
 
-    // Optional Halal pre-audit
+    // Optional Halal
     let halalChecks = [];
     if (halal_audit) {
       const hal = await askHalal({
@@ -454,13 +507,28 @@ export default async function handler(req, res) {
       }));
     }
 
-    // PDF (always build)
-    const pdf_base64 = makePdf({ report, halalChecks, fields });
+    // PDF (robust, with fallback)
+    let pdf_base64 = "";
+    let pdf_error = "";
+    try {
+      const r = buildPdfBase64(report, halalChecks, fields);
+      pdf_base64 = r.base64;
+      pdf_error = r.error || "";
+      if (!pdf_base64 || pdf_base64.length < 1000) {
+        // unlikely, but ensure we still provide a file
+        pdf_error = pdf_error || "empty-pdf";
+        pdf_base64 = buildFallbackPdfBase64("Fallback PDF created because the main PDF stream was empty.");
+      }
+    } catch (e) {
+      pdf_error = e?.message || String(e);
+      pdf_base64 = buildFallbackPdfBase64("Fallback PDF created due to PDF error.");
+    }
+    const pdf_len = (pdf_base64 || "").length;
 
-    // Email (optional)
-    let email_status = "skipped";
-    if (process.env.RESEND_API_KEY && company_email) {
-      const recipients = String(company_email).split(/[;,]/).map(s => s.trim()).filter(Boolean);
+    // Email
+    let email_status = "skipped: missing RESEND_API_KEY or company_email";
+    if (process.env.RESEND_API_KEY && fields.company_email) {
+      const recipients = String(fields.company_email).split(/[;,]/).map(s => s.trim()).filter(Boolean);
       try {
         await resend.emails.send({
           from: RESEND_FROM,
@@ -470,7 +538,7 @@ export default async function handler(req, res) {
                  <p>Attached is your preliminary compliance report for <strong>${fields.product_name || "your product"}</strong>.</p>
                  <p>Best,<br/>${APP_NAME}</p>`,
           attachments: [
-            { filename: "Preflight_Report.pdf", content: pdf_base64, contentType: "application/pdf" }
+            { filename: "Preflight_Report.pdf", content: pdf_base64 }
           ]
         });
         email_status = `sent to ${recipients.length}`;
@@ -481,12 +549,14 @@ export default async function handler(req, res) {
 
     return sendJson(res, 200, {
       ok: true,
-      version: "v4-clean",
+      version: "v5-pdf-email-diag",
       report,
       score: report.score,
       halal_audit: !!halal_audit,
       halal_checks: halalChecks,
       pdf_base64,
+      pdf_len,
+      pdf_error,
       email_status
     });
   } catch (err) {
