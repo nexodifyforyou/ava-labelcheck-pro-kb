@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "engines": { "node": "18.x" },
+  "engines": { "node": "22.x" },
   "scripts": {
     "dev": "vercel dev",
     "start": "vercel dev"
@@ -15,3 +15,4 @@
     "pdf-parse": "^1.1.1"
   }
 }
+
