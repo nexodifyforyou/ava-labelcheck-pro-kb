@@ -18,7 +18,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const resend = new Resend(process.env.RESEND_API_KEY ?? "");
 const RESEND_FROM = process.env.RESEND_FROM || DEFAULT_FROM;
 
-/* ====== util ====== */
+/* ====== utils ====== */
 function sendJson(res, status, obj) {
   res.status(status);
   res.setHeader("Content-Type", "application/json");
@@ -77,6 +77,7 @@ Rules:
 - Citations: "EU1169:Art 22; Annex VIII" or KB filenames "buyer-generic-eu.md", "refs.md", "TDS:file.pdf".
 - Core checks: Sales name, Ingredient order, Annex II allergen emphasis, QUID (Art 22), Net quantity, Date marking, Storage/use, FBO name/EU address, Nutrition declaration order per 100g/100ml, Language, Claims.
 `;
+
 const HALAL_PROMPT = `
 Halal pre-audit. Return ONLY a pure JSON array of {title,status,severity,detail,fix,sources}.
 Check: forbidden ingredients (porcine, alcohol), gelatin/enzymes origin, ethanol carriers/solvents, processing aids, logo/issuer authenticity, segregation risk.
@@ -109,6 +110,7 @@ async function askEU({ fields, imageDataUrl, labelPdfText, tdsText, extraText })
   });
   return extractJson(r.choices?.[0]?.message?.content || "{}", false);
 }
+
 async function askHalal({ fields, imageDataUrl, labelPdfText, tdsText, extraText }) {
   const parts = [];
   const kb = (KB_HALAL ? `halal_rules.md:\n${KB_HALAL}\n\n` : "") + (KB_BUYER ? `buyer-generic-eu.md:\n${KB_BUYER}` : "");
@@ -131,15 +133,7 @@ async function askHalal({ fields, imageDataUrl, labelPdfText, tdsText, extraText
   return extractJson(r.choices?.[0]?.message?.content || "[]", true);
 }
 
-/* ====== deterministic checks ====== */
-const COUNTRY_LANG = {
-  italy: "it", germany: "de", france: "fr", spain: "es", portugal: "pt",
-  netherlands: "nl", belgium: "nl", austria: "de", denmark: "da",
-  sweden: "sv", finland: "fi", poland: "pl", romania: "ro", greece: "el",
-  czechia: "cs", slovakia: "sk", slovenia: "sl", hungary: "hu", ireland: "en",
-  "united kingdom": "en"
-
-/* ====== deterministic checks (canonical + dedupe) ====== */
+/* ====== deterministic checks (canonical + de-dupe) ====== */
 
 function keywordFromName(name) {
   if (!name) return "";
@@ -182,7 +176,6 @@ function dedupeAndCanonicalize(checks, key, canonicalTitle, preferredCheck) {
     checks.push({ ...preferredCheck, title: canonicalTitle });
     return;
   }
-  // Merge all found into one, prefer the deterministic "preferredCheck"
   const first = idxs[0];
   let merged = { title: canonicalTitle, status: "ok", severity: "low", detail: "", fix: "", sources: [] };
 
@@ -197,7 +190,6 @@ function dedupeAndCanonicalize(checks, key, canonicalTitle, preferredCheck) {
     }
   }
 
-  // Deterministic preferred check wins (override status/severity/detail/fix if it is not 'ok')
   if (preferredCheck && preferredCheck.status && preferredCheck.status !== "ok") {
     merged = {
       ...merged,
@@ -208,7 +200,6 @@ function dedupeAndCanonicalize(checks, key, canonicalTitle, preferredCheck) {
       sources: Array.from(new Set([...(merged.sources||[]), ...(preferredCheck.sources||[])]))
     };
   } else if (preferredCheck && preferredCheck.status === "ok") {
-    // If deterministic says OK and merged had 'ok', keep OK; if merged had issue, keep issue.
     if (merged.status === "ok") {
       merged = {
         ...merged,
@@ -220,7 +211,6 @@ function dedupeAndCanonicalize(checks, key, canonicalTitle, preferredCheck) {
     }
   }
 
-  // Replace first, remove others
   checks[first] = merged;
   for (let j = idxs.length - 1; j >= 1; j--) checks.splice(idxs[j], 1);
 }
@@ -228,37 +218,32 @@ function dedupeAndCanonicalize(checks, key, canonicalTitle, preferredCheck) {
 function enforce(report, fields, joinedText) {
   report.checks = Array.isArray(report.checks) ? report.checks : [];
 
-  // --- Language compliance (deterministic) ---
+  // Language compliance
   const need = COUNTRY_LANG[(fields.country_of_sale||"").toLowerCase()];
-  let langPreferred = null;
   if (need) {
     const have = Array.isArray(report.product?.languages_provided)
       ? report.product.languages_provided.map(x=>String(x||"").toLowerCase())
       : (fields.languages_provided||[]).map(x=>String(x||"").toLowerCase());
 
-    if (!have.includes(need)) {
-      langPreferred = {
-        title: "Language Compliance",
-        status: "issue",
-        severity: "medium",
-        detail: `Primary language "${need}" required for ${fields.country_of_sale} not present.`,
-        fix: `Add mandatory particulars in "${need}" for sale in ${fields.country_of_sale}.`,
-        sources: ["EU1169:Art 15"]
-      };
-    } else {
-      langPreferred = {
-        title: "Language Compliance",
-        status: "ok",
-        severity: "low",
-        detail: `Includes "${need}" for sale in ${fields.country_of_sale}.`,
-        fix: "",
-        sources: ["EU1169:Art 15"]
-      };
-    }
+    const langPreferred = have.includes(need) ? {
+      title: "Language Compliance",
+      status: "ok",
+      severity: "low",
+      detail: `Includes "${need}" for sale in ${fields.country_of_sale}.`,
+      fix: "",
+      sources: ["EU1169:Art 15"]
+    } : {
+      title: "Language Compliance",
+      status: "issue",
+      severity: "medium",
+      detail: `Primary language "${need}" required for ${fields.country_of_sale} not present.`,
+      fix: `Add mandatory particulars in "${need}" for sale in ${fields.country_of_sale}.`,
+      sources: ["EU1169:Art 15"]
+    };
     dedupeAndCanonicalize(report.checks, "language", "Language Compliance", langPreferred);
   }
 
-  // --- QUID (deterministic) ---
+  // QUID
   const token = keywordFromName(fields.product_name || report.product?.name || "");
   if (token) {
     const quidRegex = new RegExp(`${token}\\s*[^\\n]{0,40}?\\d{1,3}\\s*%`, "i");
@@ -278,13 +263,11 @@ function enforce(report, fields, joinedText) {
       fix: `Declare the percentage of "${token}" (e.g., "${token} 60%") near the sales name or in the ingredients list.`,
       sources: ["EU1169:Art 22; Annex VIII"]
     };
-    // Canonical title = "QUID"; this collapses model variants like "QUID (Art 22)" into one line
     dedupeAndCanonicalize(report.checks, "quid", "QUID", quidPreferred);
   }
 
   return report;
 }
-
 
 /* ====== scoring ====== */
 function recomputeScore(report) {
@@ -478,7 +461,7 @@ export default async function handler(req, res) {
       })) : []
     };
 
-    // Deterministic: language + QUID
+    // Deterministic: language + QUID (with de-dupe)
     const joined = `${(labelPdfText||"")}\n${(tdsText||"")}\n${(reference_docs_text||"")}`.toLowerCase();
     enforce(report, fields, joined);
 
@@ -515,7 +498,6 @@ export default async function handler(req, res) {
       pdf_base64 = r.base64;
       pdf_error = r.error || "";
       if (!pdf_base64 || pdf_base64.length < 1000) {
-        // unlikely, but ensure we still provide a file
         pdf_error = pdf_error || "empty-pdf";
         pdf_base64 = buildFallbackPdfBase64("Fallback PDF created because the main PDF stream was empty.");
       }
@@ -549,7 +531,7 @@ export default async function handler(req, res) {
 
     return sendJson(res, 200, {
       ok: true,
-      version: "v5-pdf-email-diag",
+      version: "v6-dedupe",
       report,
       score: report.score,
       halal_audit: !!halal_audit,
