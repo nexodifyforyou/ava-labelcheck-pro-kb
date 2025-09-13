@@ -1,6 +1,5 @@
 // api/labelcheck.js
 export const config = { runtime: "nodejs" };
-
 /* ========= BRAND & EMAIL ========= */
 const APP_NAME = "Nexodify’s Label Compliance Preflight";
 // Default sender (works for Resend test emails / verified domains)
