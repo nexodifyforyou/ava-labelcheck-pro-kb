@@ -1,6 +1,6 @@
 // ========= BRAND / NAME =========
 // ***** CHANGE HERE: your public app name used in PDF & emails *****
-const APP_NAME = "LabelCheck"; // e.g., "LabelGuard", "Regulaid"
+const APP_NAME = "Nexodify’s Label Compliance Preflight";
 // =================================
 
 export const config = { runtime: "nodejs" };
