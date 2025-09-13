@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title><!-- APP_NAME -->LabelCheck<!-- /APP_NAME --> — Client Intake</title>
+  <title><!-- APP_NAME -->Nexodify’s Label Compliance Preflight<!-- /APP_NAME --> — Client Intake</title>
   <style>
     :root{
       --bg:#0c1022;--bg2:#0f1430;--panel:#111736;--panel-2:#0b122c;
@@ -32,6 +32,7 @@
     .sub{margin:6px 0 0;color:var(--muted)}
     .grid{display:grid;gap:14px}
     .grid.two{grid-template-columns:1fr 1fr}
+    .full{grid-column:1 / -1}
     @media (max-width:860px){.grid.two{grid-template-columns:1fr}}
 
     .card{
@@ -96,13 +97,15 @@
       <div class="brand">
         <div class="brandLogo" aria-hidden="true"></div>
         <div>
-          <h1><!-- APP_NAME -->LabelCheck<!-- /APP_NAME --></h1>
-          <div class="sub">EU 1169/2011 preflight with citations • optional Halal pre-audit • PDF + Fix Pack</div>
+          <h1><!-- APP_NAME -->Nexodify’s Label Compliance Preflight<!-- /APP_NAME --></h1>
+          <div class="sub">Cited. Actionable. Production-ready.</div>
+          <div class="sub" style="font-size:12px; opacity:.85">EU 1169/2011 preflight • optional Halal pre-audit • PDF + Fix Pack</div>
         </div>
       </div>
     </header>
 
     <form id="f" class="grid" onsubmit="return false">
+      <!-- Row 1: Product + Company -->
       <div class="grid two">
         <div class="card">
           <h3>Product</h3>
@@ -148,6 +151,7 @@
         </div>
       </div>
 
+      <!-- Row 2: Label file + TDS -->
       <div class="grid two">
         <div class="card" id="labelCard">
           <h3>Label file (JPG/PNG or PDF)</h3>
@@ -172,30 +176,30 @@
         </div>
       </div>
 
-      <div class="grid two">
-        <div class="card">
-          <h3>Extra rules / buyer requirements (optional)</h3>
-          <textarea name="reference_docs_text" placeholder="Paste internal spec, buyer rules, claims substantiation..."></textarea>
-          <div class="hint">If omitted, the engine uses EU baseline and your /kb files.</div>
-        </div>
+      <!-- Row 3: Extra rules (full width) -->
+      <div class="card full">
+        <h3>Extra rules / buyer requirements (optional)</h3>
+        <textarea name="reference_docs_text" placeholder="Paste internal spec, buyer rules, claims substantiation..."></textarea>
+        <div class="hint">If omitted, the engine uses EU baseline and your /kb files.</div>
+      </div>
 
-        <div class="card">
-          <h3>Options</h3>
-          <div class="toggleRow">
-            <label class="switch" title="Enable Halal pre-audit">
-              <input type="checkbox" name="halal_audit"/>
-              <span class="slider" aria-hidden="true"></span>
-            </label>
-            <div>
-              <div class="toggleTitle">Halal pre-audit</div>
-              <div class="muted">Adds checks for forbidden ingredients, carriers/solvents, logo/issuer, segregation.</div>
-            </div>
+      <!-- Row 4: Options (full width) — Halal toggle lives here -->
+      <div class="card full">
+        <h3>Options</h3>
+        <div class="toggleRow">
+          <label class="switch" title="Enable Halal pre-audit">
+            <input type="checkbox" name="halal_audit"/>
+            <span class="slider" aria-hidden="true"></span>
+          </label>
+          <div>
+            <div class="toggleTitle">Halal pre-audit</div>
+            <div class="muted">Adds checks for forbidden ingredients, carriers/solvents, logo/issuer, segregation.</div>
           </div>
-          <div class="hint" style="margin-top:10px">PDF includes a score, only non-OK items show Fix & Sources.</div>
         </div>
       </div>
 
-      <div class="actions">
+      <!-- Row 5: Actions -->
+      <div class="actions full">
         <button class="btn secondary" type="button" id="resetBtn">Reset</button>
         <button class="btn" id="generateBtn" type="button">Generate Preflight</button>
       </div>
@@ -220,7 +224,7 @@
     // drag & drop binding
     function bindDrop(dropEl, inputEl, metaEl, previewEl){
       const click = () => inputEl.click();
-      ['click'].forEach(ev=>dropEl.addEventListener(ev, click));
+      dropEl.addEventListener('click', click);
       ['dragenter','dragover'].forEach(ev=>dropEl.addEventListener(ev, e=>{e.preventDefault(); dropEl.classList.add('drag');}));
       ['dragleave','drop'].forEach(ev=>dropEl.addEventListener(ev, e=>{e.preventDefault(); dropEl.classList.remove('drag');}));
       dropEl.addEventListener('drop', e=>{
@@ -230,7 +234,7 @@
         metaEl.textContent = f.name + ' (' + Math.round(f.size/1024) + ' KB)';
         if(previewEl) previewFile(f, previewEl);
       });
-      inputEl.addEventListener('change', e=>{
+      inputEl.addEventListener('change', ()=>{
         const f = inputEl.files && inputEl.files[0];
         if(!f){ metaEl.textContent = 'No file chosen.'; if(previewEl) previewEl.innerHTML=''; return; }
         metaEl.textContent = f.name + ' (' + Math.round(f.size/1024) + ' KB)';
@@ -378,8 +382,13 @@
       out.innerHTML = '';
     }
 
-    btn.addEventListener('click', handleGenerate);
-    resetBtn.addEventListener('click', resetForm);
+    // Bind events
+    document.addEventListener('DOMContentLoaded', ()=>{
+      bindDrop(labelDrop, labelInput, labelMeta, labelPreview);
+      bindDrop(tdsDrop, tdsInput, tdsMeta, null);
+      btn.addEventListener('click', handleGenerate);
+      resetBtn.addEventListener('click', resetForm);
+    });
   </script>
 </body>
 </html>
