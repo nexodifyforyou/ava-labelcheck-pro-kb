@@ -58,28 +58,40 @@ const KB_REFS  = readIf("kb/refs.md");
 const KB_BUYER = readIf("kb/buyer-generic-eu.md");
 const KB_HALAL = readIf("kb/halal_rules.md");
 
-/* ====== prompts ====== */
+/* ====== prompts (stronger) ====== */
 const SYSTEM_PROMPT = `
 You are an expert EU food label compliance assistant for Regulation (EU) No 1169/2011.
-Return ONLY pure JSON (no markdown fences). Shape:
+Return ONLY pure JSON (no markdown fences). JSON shape:
 {
   "version": "1.0",
   "product": { "name": "", "country_of_sale": "", "languages_provided": [] },
   "summary": "",
   "checks": [
-    { "title": "", "status": "ok|issue|missing", "severity": "low|medium|high", "detail": "", "fix": "", "sources": [] }
+    { "id": "sales_name", "title": "Sales name", "status": "ok|issue|missing", "severity": "low|medium|high", "detail": "", "fix": "", "sources": [] },
+    { "id": "ingredients", "title": "Ingredient order", "status": "...", "severity": "...", "detail": "", "fix": "", "sources": [] },
+    { "id": "allergens", "title": "Annex II allergen emphasis", "status": "...", "severity": "...", "detail": "", "fix": "", "sources": [] },
+    { "id": "quid", "title": "QUID (Art 22)", "status": "...", "severity": "...", "detail": "", "fix": "", "sources": [] },
+    { "id": "net_qty", "title": "Net quantity", "status": "...", "severity": "...", "detail": "", "fix": "", "sources": [] },
+    { "id": "date_marking", "title": "Date marking", "status": "...", "severity": "...", "detail": "", "fix": "", "sources": [] },
+    { "id": "storage_use", "title": "Storage/use", "status": "...", "severity": "...", "detail": "", "fix": "", "sources": [] },
+    { "id": "business_address", "title": "FBO name/EU address", "status": "...", "severity": "...", "detail": "", "fix": "", "sources": [] },
+    { "id": "nutrition", "title": "Nutrition declaration order per 100g/100ml", "status": "...", "severity": "...", "detail": "", "fix": "", "sources": [] },
+    { "id": "language", "title": "Language compliance", "status": "...", "severity": "...", "detail": "", "fix": "", "sources": [] },
+    { "id": "claims", "title": "Claims", "status": "...", "severity": "...", "detail": "", "fix": "", "sources": [] }
   ]
 }
-Rules:
-- Be precise. If unsure, mark as "missing".
-- Include Fix & Sources for non-OK; for OK items include short "detail" and 1 compact "sources" entry.
-- Citations: "EU1169:Art 22; Annex VIII" or KB filenames "buyer-generic-eu.md", "refs.md", "TDS:file.pdf".
-- Core checks: Sales name, Ingredient order, Annex II allergen emphasis, QUID (Art 22), Net quantity, Date marking, Storage/use, FBO name/EU address, Nutrition declaration order per 100g/100ml, Language, Claims.
+Instructions:
+- Use evidence from label text/image + any provided KB (“House Rules”, “buyer-generic-eu.md”, “refs.md”, TDS excerpts). Ignore irrelevant KB sections.
+- Keep one canonical entry per topic (no duplicates, especially for QUID and Language).
+- If unsure, mark "missing". For "ok", include a short factual detail and ONE compact citation.
+- Citations format: "EU1169:Art 22; Annex VIII" or exact KB filename (e.g. "buyer-generic-eu.md").
+- QUID: if an ingredient is highlighted in the sales name/images and no nearby % is found, set status "issue" (high) with a concise fix.
+- Do NOT return commentary; JSON only.
 `;
 
 const HALAL_PROMPT = `
 Halal pre-audit. Return ONLY a pure JSON array of {title,status,severity,detail,fix,sources}.
-Check: forbidden ingredients (porcine, alcohol), gelatin/enzymes origin, ethanol carriers/solvents, processing aids, logo/issuer authenticity, segregation risk.
+Check: forbidden ingredients (porcine, alcohol), gelatin/enzymes origin, ethanol carriers/solvents, processing aids, logo/issuer authenticity, and segregation. Use concise citations (e.g., "OIC/SMIIC" if relevant) or KB filenames. No duplicates.
 `;
 
 /* ====== OpenAI calls ====== */
@@ -93,9 +105,9 @@ async function askEU({ fields, imageDataUrl, labelPdfText, tdsText, extraText })
   if (kbText) userParts.push({ type: "text", text: clamp(kbText, 9000) });
 
   userParts.push({ type: "text", text: `Fields:\n${clamp(JSON.stringify(fields, null, 2), 3500)}` });
-  if (extraText) userParts.push({ type: "text", text: `Extra rules:\n${clamp(extraText, 3500)}` });
-  if (tdsText)   userParts.push({ type: "text", text: `TDS excerpt:\n${clamp(tdsText, 6000)}` });
-  if (labelPdfText) userParts.push({ type: "text", text: `Label PDF text:\n${clamp(labelPdfText, 6000)}` });
+  if (extraText)    userParts.push({ type: "text", text: `Extra rules:\n${clamp(extraText, 3500)}` });
+  if (tdsText)      userParts.push({ type: "text", text: `TDS excerpt:\n${clamp(tdsText, 8000)}` });
+  if (labelPdfText) userParts.push({ type: "text", text: `Label PDF text:\n${clamp(labelPdfText, 12000)}` });
   if (imageDataUrl) userParts.push({ type: "image_url", image_url: { url: imageDataUrl } });
 
   const r = await openai.chat.completions.create({
@@ -115,9 +127,9 @@ async function askHalal({ fields, imageDataUrl, labelPdfText, tdsText, extraText
   const kb = (KB_HALAL ? `halal_rules.md:\n${KB_HALAL}\n\n` : "") + (KB_BUYER ? `buyer-generic-eu.md:\n${KB_BUYER}` : "");
   if (kb) parts.push({ type: "text", text: clamp(kb, 8000) });
   parts.push({ type: "text", text: `Fields:\n${clamp(JSON.stringify(fields, null, 2), 3500)}` });
-  if (extraText) parts.push({ type: "text", text: `Extra rules:\n${clamp(extraText, 3500)}` });
-  if (tdsText)   parts.push({ type: "text", text: `TDS excerpt:\n${clamp(tdsText, 6000)}` });
-  if (labelPdfText) parts.push({ type: "text", text: `Label PDF text:\n${clamp(labelPdfText, 6000)}` });
+  if (extraText)    parts.push({ type: "text", text: `Extra rules:\n${clamp(extraText, 3500)}` });
+  if (tdsText)      parts.push({ type: "text", text: `TDS excerpt:\n${clamp(tdsText, 8000)}` });
+  if (labelPdfText) parts.push({ type: "text", text: `Label PDF text:\n${clamp(labelPdfText, 12000)}` });
   if (imageDataUrl) parts.push({ type: "image_url", image_url: { url: imageDataUrl } });
 
   const r = await openai.chat.completions.create({
@@ -164,7 +176,7 @@ function idxAllLike(checks, key) {
 }
 function worstSeverity(a,b){
   const ord = { low:1, medium:2, high:3 };
-  return (ord[a||"low"] >= ord[b||"low"]) ? a : b;
+  return (ord[a||"low"] >= (ord[b||"low"] || 1)) ? (a||"low") : (b||"low");
 }
 function dedupeAndCanonicalize(checks, key, canonicalTitle, preferredCheck) {
   const idxs = idxAllLike(checks, key);
@@ -181,21 +193,20 @@ function dedupeAndCanonicalize(checks, key, canonicalTitle, preferredCheck) {
       merged.sources = Array.from(new Set([...(merged.sources||[]), ...c.sources]));
     }
   }
-  if (preferredCheck && preferredCheck.status && preferredCheck.status !== "ok") {
-    merged = {
-      ...merged,
-      status: preferredCheck.status,
-      severity: preferredCheck.severity || merged.severity,
-      detail: preferredCheck.detail || merged.detail,
-      fix: preferredCheck.fix || merged.fix,
-      sources: Array.from(new Set([...(merged.sources||[]), ...(preferredCheck.sources||[])]))
-    };
-  } else if (preferredCheck && preferredCheck.status === "ok") {
-    if (merged.status === "ok") {
+  if (preferredCheck) {
+    // prefer deterministic result if it indicates an issue
+    if (preferredCheck.status && preferredCheck.status !== "ok") {
       merged = {
         ...merged,
-        status: "ok",
-        severity: "low",
+        status: preferredCheck.status,
+        severity: preferredCheck.severity || merged.severity,
+        detail: preferredCheck.detail || merged.detail,
+        fix: preferredCheck.fix || merged.fix,
+        sources: Array.from(new Set([...(merged.sources||[]), ...(preferredCheck.sources||[])]))
+      };
+    } else if (preferredCheck.status === "ok" && merged.status === "ok") {
+      merged = {
+        ...merged,
         detail: preferredCheck.detail || merged.detail,
         sources: Array.from(new Set([...(merged.sources||[]), ...(preferredCheck.sources||[])]))
       };
@@ -396,28 +407,29 @@ export default async function handler(req, res) {
       shipping_scope, product_category
     };
 
-    // TDS parse
+    // ---- TDS parse (PDF-safe: use pure build) ----
     let tdsText = "";
     if (tds_file?.base64) {
       if ((tds_file.name || "").toLowerCase().endsWith(".pdf")) {
-        const pdfParse = (await import("pdf-parse")).default;
+        const { default: pdfParse } = await import("pdf-parse/lib/pdf-parse.js");
         const buf = Buffer.from(b64FromDataUrl(tds_file.base64), "base64");
-        const parsed = await pdfParse(buf);
+        const parsed = await pdfParse(buf).catch(()=>({ text:"" }));
         tdsText = parsed.text || "";
       } else {
         try { tdsText = Buffer.from(b64FromDataUrl(tds_file.base64), "base64").toString("utf8"); } catch {}
       }
     }
-    // Label PDF → text
+
+    // ---- Label PDF → text (PDF-safe: use pure build) ----
     let labelPdfText = "";
     if (label_pdf_file?.base64) {
-      const pdfParse = (await import("pdf-parse")).default;
+      const { default: pdfParse } = await import("pdf-parse/lib/pdf-parse.js");
       const buf = Buffer.from(b64FromDataUrl(label_pdf_file.base64), "base64");
-      const parsed = await pdfParse(buf);
+      const parsed = await pdfParse(buf).catch(()=>({ text:"" }));
       labelPdfText = parsed.text || "";
     }
 
-    // 1st pass
+    // ---- 1st pass (LLM) ----
     const raw = await askEU({
       fields,
       imageDataUrl: label_image_data_url || null,
@@ -426,7 +438,7 @@ export default async function handler(req, res) {
       extraText: reference_docs_text || ""
     });
 
-    // Normalize
+    // ---- Normalize ----
     const report = {
       version: "1.0",
       product: {
@@ -446,16 +458,16 @@ export default async function handler(req, res) {
       })) : []
     };
 
-    // Deterministic enforcement (de-dupe inside)
+    // ---- Deterministic enforcement ----
     const joined = `${(labelPdfText||"")}\n${(tdsText||"")}\n${(reference_docs_text||"")}`.toLowerCase();
     enforce(report, fields, joined);
 
-    // Score + overall
+    // ---- Score + overall ----
     const { score, overall } = recomputeScore(report);
     report.score = score;
     report.overall_status = overall;
 
-    // Optional Halal
+    // ---- Optional Halal ----
     let halalChecks = [];
     if (halal_audit) {
       const hal = await askHalal({
@@ -475,7 +487,7 @@ export default async function handler(req, res) {
       }));
     }
 
-    // PDF (await 'end')
+    // ---- PDF (await 'end') ----
     let pdf_base64 = "";
     let pdf_error = "";
     try {
@@ -492,7 +504,7 @@ export default async function handler(req, res) {
     }
     const pdf_len = (pdf_base64 || "").length;
 
-    // Email
+    // ---- Email ----
     let email_status = "skipped: missing RESEND_API_KEY or company_email";
     if (process.env.RESEND_API_KEY && fields.company_email) {
       const recipients = String(fields.company_email).split(/[;,]/).map(s => s.trim()).filter(Boolean);
@@ -516,7 +528,7 @@ export default async function handler(req, res) {
 
     return sendJson(res, 200, {
       ok: true,
-      version: "v7-pdfawait",
+      version: "v8-strong-prompt-purepdf",
       report,
       score: report.score,
       halal_audit: !!halal_audit,
