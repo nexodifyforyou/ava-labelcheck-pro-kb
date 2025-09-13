@@ -69,18 +69,10 @@
         <h3>Product</h3>
         <label>Product name</label>
         <input name="product_name" placeholder="Pasta di Ceci" required/>
-
         <div class="grid two" style="margin-top:10px">
-          <div>
-            <label>Country of sale</label>
-            <input name="country_of_sale" placeholder="Italy" required/>
-          </div>
-          <div>
-            <label>Languages on label (ISO, comma)</label>
-            <input name="languages_provided" placeholder="it,en"/>
-          </div>
+          <div><label>Country of sale</label><input name="country_of_sale" placeholder="Italy" required/></div>
+          <div><label>Languages on label (ISO, comma)</label><input name="languages_provided" placeholder="it,en"/></div>
         </div>
-
         <div class="grid two" style="margin-top:10px">
           <div>
             <label>Shipping scope</label>
@@ -252,7 +244,6 @@ async function generate(){
     const r = await fetch('/api/labelcheck', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     const raw = await r.text(); let data;
     try{ data = JSON.parse(raw); }catch{ out.innerHTML = '<div class="card">Server error:<pre class="pre">'+esc(raw)+'</pre></div>'; setLoading(false); return; }
-
     if(data.error) throw new Error(data.error);
 
     const status = data.report?.overall_status || 'caution';
@@ -275,11 +266,17 @@ async function generate(){
     if(Array.isArray(data.halal_checks) && data.halal_checks.length)
       html += renderChecks('Halal Pre-Audit', data.halal_checks);
 
-    // Downloads
+    // Downloads + diagnostics
     html += `<div class="card full" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-      <div class="sub">Downloads</div>
       <div>
-        ${data.pdf_base64 ? `
+        <div class="sub">Downloads</div>
+        ${data.pdf_len && data.pdf_len > 1000 ? 
+          `<div class="hint">PDF ready (${Math.round(data.pdf_len/1024)} KB)</div>` :
+          `<div class="hint">PDF unavailable ${data.pdf_error ? '— ' + esc(data.pdf_error) : ''}</div>`
+        }
+      </div>
+      <div>
+        ${data.pdf_len && data.pdf_len > 1000 ? `
           <a download="Preflight_Report.pdf" href="data:application/pdf;base64,${data.pdf_base64}">
             <button class="btn" type="button">Download Report (PDF)</button>
           </a>` : ``}
