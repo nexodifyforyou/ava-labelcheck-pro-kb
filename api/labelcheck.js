@@ -32,6 +32,20 @@ function clampText(s, n = 8000) {
   s = String(s);
   return s.length > n ? s.slice(0, n) : s;
 }
+async function readJsonBody(req) {
+  return await new Promise((resolve, reject) => {
+    let data = "";
+    req.on("data", (c) => (data += c));
+    req.on("end", () => {
+      try {
+        resolve(JSON.parse(data || "{}"));
+      } catch (e) {
+        reject(new Error("Invalid JSON body"));
+      }
+    });
+    req.on("error", reject);
+  });
+}
 
 /* --------------------- load KB (best effort) ---------------------- */
 const __filename = fileURLToPath(import.meta.url);
@@ -43,11 +57,11 @@ function readIfExists(rel) {
     return "";
   }
 }
-// Your optional knowledge base files (put them in /kb)
+// Your KB files (as created earlier)
 const KB_HOUSE = readIfExists("kb/house_rules.md");
 const KB_REFS = readIfExists("kb/refs.md");
-const KB_BUYER = readIfExists("kb/buyer/generic.md");
-const KB_HALAL = readIfExists("kb/halal/basics.md");
+const KB_BUYER = readIfExists("kb/buyer-generic-eu.md");
+const KB_HALAL = readIfExists("kb/halal_rules.md");
 
 /* -------------------- prompt system messages ---------------------- */
 const SYSTEM_PROMPT = `
@@ -61,17 +75,17 @@ Return a JSON object with:
 Rules:
 - Be precise. If unsure, mark as "missing" with a short detail.
 - Only include Fix and Sources for non-OK items.
-- Cite concise sources using tags (e.g., "EU1169:Art 22; Annex VIII") and/or KB filenames when relevant.
+- Cite concise sources using tags (e.g., "EU1169:Art 22; Annex VIII") and/or exact KB filenames when relevant (e.g., "buyer-generic-eu.md", "refs.md", "TDS: file.pdf").
 - Do NOT invent facts. If an item is present on the label/TDS, mark it OK.
 - Important topics: sales name, ingredient list (descending order), allergen emphasis (Annex II), QUID (Art 22), net quantity, date marking, storage/conditions of use, FBO name/EU address, nutrition table order per 100g/100ml, language compliance for the country of sale, and claims.
 `;
 
 const HALAL_SYSTEM_PROMPT = `
-You are performing a Halal pre-audit screening on a product label and specs.
-Return JSON array of checks: each { title, status: "ok"|"issue"|"missing", severity: "low"|"medium"|"high", detail, fix, sources[] }.
-Consider forbidden ingredients (porcine products, alcohol, non-halal gelatin), solvents/carriers (ethanol), processing aids, logo/issuer authenticity, segregation/contamination risk.
+You are performing a Halal pre-audit screening on a product label and specs based on halal_rules.md and buyer files where provided.
+Return a JSON array of checks: each { title, status: "ok"|"issue"|"missing", severity: "low"|"medium"|"high", detail, fix, sources[] }.
+Consider forbidden ingredients (porcine, alcohol), gelatin/enzymes origin, flavour carriers/solvents (ethanol), processing aids, logo/issuer authenticity, segregation/contamination risk.
 - If nothing problematic is detected, return [].
-- Cite concise sources (e.g., "Halal-KB:basics.md") only for non-OK.
+- Provide Fix & Sources only for non-OK items; cite "halal_rules.md" or buyer docs where relevant.
 `;
 
 /* ----------------------- model call helpers ----------------------- */
@@ -81,47 +95,43 @@ async function analyzeEU({ fields, imageDataUrl, pdfText, tdsText, extraRules })
   const kbText = [
     KB_HOUSE && `House Rules:\n${KB_HOUSE}`,
     KB_REFS && `EU References:\n${KB_REFS}`,
-    KB_BUYER && `Buyer Generic Rules:\n${KB_BUYER}`,
+    KB_BUYER && `Buyer Generic Rules:\n${KB_BUYER}`
   ]
     .filter(Boolean)
     .join("\n\n");
 
-  userParts.push({
-    type: "text",
-    text:
-      `Use the following guidance and references if relevant:\n` +
-      clampText(kbText, 9000),
-  });
+  if (kbText) {
+    userParts.push({
+      type: "text",
+      text: `Use the following guidance and references if relevant:\n${clampText(kbText, 9000)}`
+    });
+  }
 
   userParts.push({
     type: "text",
-    text:
-      `Product fields:\n` + clampText(JSON.stringify(fields, null, 2), 3000),
+    text: `Product fields:\n${clampText(JSON.stringify(fields, null, 2), 3000)}`
   });
 
   if (extraRules) {
     userParts.push({
       type: "text",
-      text: `Client Extra Rules (use if relevant):\n${clampText(extraRules, 3000)}`,
+      text: `Client Extra Rules (use if relevant):\n${clampText(extraRules, 3000)}`
     });
   }
   if (tdsText) {
     userParts.push({
       type: "text",
-      text: `Extracted TDS text:\n${clampText(tdsText, 6000)}`,
+      text: `Extracted TDS text:\n${clampText(tdsText, 6000)}`
     });
   }
   if (pdfText) {
     userParts.push({
       type: "text",
-      text: `Extracted Label PDF text:\n${clampText(pdfText, 6000)}`,
+      text: `Extracted Label PDF text:\n${clampText(pdfText, 6000)}`
     });
   }
   if (imageDataUrl) {
-    userParts.push({
-      type: "image_url",
-      image_url: { url: imageDataUrl },
-    });
+    userParts.push({ type: "image_url", image_url: { url: imageDataUrl } });
   }
 
   const resp = await openai.chat.completions.create({
@@ -130,12 +140,8 @@ async function analyzeEU({ fields, imageDataUrl, pdfText, tdsText, extraRules })
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: userParts },
-      {
-        role: "user",
-        content:
-          "Return ONLY JSON. Keys: version, product{name,country_of_sale,languages_provided}, summary, checks[].",
-      },
-    ],
+      { role: "user", content: "Return ONLY JSON with keys: version, product{name,country_of_sale,languages_provided}, summary, checks[]." }
+    ]
   });
 
   const txt = resp.choices?.[0]?.message?.content?.trim() || "{}";
@@ -149,8 +155,8 @@ async function analyzeEU({ fields, imageDataUrl, pdfText, tdsText, extraRules })
 
 async function analyzeHalal({ fields, imageDataUrl, pdfText, tdsText, extraRules }) {
   const parts = [];
-  const kb = (KB_HALAL ? `Halal KB:\n${KB_HALAL}\n\n` : "") +
-             (KB_BUYER ? `Buyer/Halal rules:\n${KB_BUYER}` : "");
+  const kb = (KB_HALAL ? `halal_rules.md:\n${KB_HALAL}\n\n` : "") +
+             (KB_BUYER ? `buyer-generic-eu.md:\n${KB_BUYER}` : "");
   if (kb) parts.push({ type: "text", text: clampText(kb, 8000) });
   parts.push({ type: "text", text: `Fields:\n${clampText(JSON.stringify(fields, null, 2), 3000)}` });
   if (extraRules) parts.push({ type: "text", text: `Client Extras:\n${clampText(extraRules, 3000)}` });
@@ -164,8 +170,8 @@ async function analyzeHalal({ fields, imageDataUrl, pdfText, tdsText, extraRules
     messages: [
       { role: "system", content: HALAL_SYSTEM_PROMPT },
       { role: "user", content: parts },
-      { role: "user", content: "Return ONLY a JSON array of checks." },
-    ],
+      { role: "user", content: "Return ONLY a JSON array of checks." }
+    ]
   });
 
   const txt = resp.choices?.[0]?.message?.content?.trim() || "[]";
@@ -181,34 +187,41 @@ function normalizeReport(r, fields) {
       country_of_sale: r?.product?.country_of_sale || fields?.country_of_sale || "",
       languages_provided: Array.isArray(r?.product?.languages_provided)
         ? r.product.languages_provided
-        : (fields?.languages_provided || []),
+        : (fields?.languages_provided || [])
     },
     summary: r?.summary || "",
-    checks: Array.isArray(r?.checks) ? r.checks : [],
+    checks: Array.isArray(r?.checks) ? r.checks : []
   };
 
   // force shape for checks
-  report.checks = report.checks.map(c => ({
+  report.checks = report.checks.map((c) => ({
     title: c?.title || "Unlabeled check",
-    status: (c?.status === "ok" ? "ok" : (c?.status === "missing" ? "missing" : "issue")),
+    status: c?.status === "ok" ? "ok" : c?.status === "missing" ? "missing" : "issue",
     severity: ["low", "medium", "high"].includes(c?.severity) ? c.severity : "medium",
     detail: c?.detail || "",
-    fix: (c?.status === "ok") ? "" : (c?.fix || ""),
-    sources: (c?.status === "ok") ? [] : (Array.isArray(c?.sources) ? c.sources : []),
+    fix: c?.status === "ok" ? "" : c?.fix || "",
+    sources: c?.status === "ok" ? [] : Array.isArray(c?.sources) ? c.sources : []
   }));
 
   // scoring + overall
   let score = 100;
-  let hasHigh = false, hasMedium = false;
+  let hasHigh = false,
+    hasMedium = false;
   for (const c of report.checks) {
     if (c.status !== "ok") {
-      if (c.severity === "high") { score -= 15; hasHigh = true; }
-      else if (c.severity === "medium") { score -= 8; hasMedium = true; }
-      else { score -= 3; }
+      if (c.severity === "high") {
+        score -= 15;
+        hasHigh = true;
+      } else if (c.severity === "medium") {
+        score -= 8;
+        hasMedium = true;
+      } else {
+        score -= 3;
+      }
     }
   }
   score = Math.max(0, Math.min(100, score));
-  const overall_status = hasHigh ? "fail" : (hasMedium ? "caution" : "pass");
+  const overall_status = hasHigh ? "fail" : hasMedium ? "caution" : "pass";
   return { ...report, overall_status, score };
 }
 
@@ -234,12 +247,17 @@ function buildFixPack(report, halalChecks) {
 function makePdf({ report, halalChecks, fields }) {
   const doc = new PDFDocument({ size: "A4", margin: 36 });
   const bufs = [];
-  doc.on("data", d => bufs.push(d));
-  doc.on("error", e => console.error("PDF error:", e));
+  doc.on("data", (d) => bufs.push(d));
+  doc.on("error", (e) => console.error("PDF error:", e));
 
   doc.fontSize(18).text(`${APP_NAME} — Compliance Assessment`, { align: "left" });
   doc.moveDown(0.3);
-  doc.fontSize(10).fillColor("#555").text(`Preliminary analysis based on EU 1169/2011 + KB references. Generated: ${new Date().toISOString()}`);
+  doc
+    .fontSize(10)
+    .fillColor("#555")
+    .text(
+      `Preliminary analysis based on EU 1169/2011 + KB references. Generated: ${new Date().toISOString()}`
+    );
   doc.moveDown();
 
   // product box
@@ -299,7 +317,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const body = await req.json();
+    const body = await readJsonBody(req); // <-- FIX: parse JSON for Node runtime
     const {
       product_name,
       company_name,
@@ -310,7 +328,7 @@ export default async function handler(req, res) {
       product_category,
       label_image_data_url,
       label_pdf_file, // { name, base64: dataurl }
-      tds_file,        // { name, base64: dataurl }
+      tds_file,       // { name, base64: dataurl }
       reference_docs_text,
       halal_audit
     } = body || {};
@@ -328,23 +346,22 @@ export default async function handler(req, res) {
     /* ---------- extract optional TDS text ---------- */
     let tdsText = "";
     if (tds_file?.base64) {
-      // we do not parse docx; we just send raw text (for .txt/.md)
-      // for pdf TDS, we can reuse pdf-parse lazily
       if ((tds_file.name || "").toLowerCase().endsWith(".pdf")) {
-        const pdfParse = (await import("pdf-parse")).default; // lazy
+        const pdfParse = (await import("pdf-parse")).default; // lazy import
         const tbuf = safeB64ToBuffer(tds_file.base64);
         const parsed = await pdfParse(tbuf);
         tdsText = parsed.text || "";
       } else {
-        // base64 decode to string best-effort; if it fails, skip
-        try { tdsText = safeB64ToBuffer(tds_file.base64).toString("utf8"); } catch {}
+        try {
+          tdsText = safeB64ToBuffer(tds_file.base64).toString("utf8");
+        } catch {}
       }
     }
 
     /* ---------- extract label PDF text if provided ---------- */
     let labelPdfText = "";
     if (label_pdf_file?.base64) {
-      const pdfParse = (await import("pdf-parse")).default; // <--- LAZY IMPORT
+      const pdfParse = (await import("pdf-parse")).default; // lazy import
       const buf = safeB64ToBuffer(label_pdf_file.base64);
       const parsed = await pdfParse(buf);
       labelPdfText = parsed.text || "";
@@ -371,14 +388,14 @@ export default async function handler(req, res) {
         tdsText: tdsText || null,
         extraRules: reference_docs_text || ""
       });
-      // normalize halal checks shape
-      halalChecks = (Array.isArray(halalChecks) ? halalChecks : []).map(c => ({
+
+      halalChecks = (Array.isArray(halalChecks) ? halalChecks : []).map((c) => ({
         title: c?.title || "Halal check",
-        status: (c?.status === "ok" ? "ok" : (c?.status === "missing" ? "missing" : "issue")),
-        severity: ["low","medium","high"].includes(c?.severity) ? c.severity : "medium",
+        status: c?.status === "ok" ? "ok" : c?.status === "missing" ? "missing" : "issue",
+        severity: ["low", "medium", "high"].includes(c?.severity) ? c.severity : "medium",
         detail: c?.detail || "",
-        fix: (c?.status === "ok") ? "" : (c?.fix || ""),
-        sources: (c?.status === "ok") ? [] : (Array.isArray(c?.sources) ? c.sources : []),
+        fix: c?.status === "ok" ? "" : c?.fix || "",
+        sources: c?.status === "ok" ? [] : Array.isArray(c?.sources) ? c.sources : []
       }));
     }
 
