@@ -2,9 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- ***** CHANGE HERE: App name & subtitle shown in the UI ***** -->
-  <title><!-LabelCheck<!-- /APP_NAME --> — Client Intake</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title><!-- APP_NAME -->LabelCheck<!-- /APP_NAME --> — Client Intake</title>
   <style>
     body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; background: #0b1020; color: #e7eefc; }
     .wrap { max-width: 980px; margin: 0 auto; }
@@ -23,15 +22,15 @@
     .caution { background: #f59e0b; color: #220; }
     .fail { background: #ef4444; color: #200; }
     small { color:#9aa7c7; }
+    .downloads { display:flex; gap:12px; margin-top:8px; }
+    .sectionTitle { margin-top: 14px; font-weight: 700; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <!-- ***** CHANGE HERE: page headline & subtitle ***** -->
     <h1><!-- APP_NAME -->LabelCheck<!-- /APP_NAME --> — Client Intake</h1>
-    <p class="muted">Upload a JPG/PNG of your label. We’ll OCR it, apply EU 1169/2011 + your House Rules, generate a stamped PDF, and (optionally) email it.</p>
+    <p class="muted">Upload a label (image or PDF), optional TDS, and any extra rules. We’ll analyze EU 1169/2011, optionally run Halal pre-audit, and email you a stamped PDF.</p>
 
-    <!-- prevent default submit no matter what -->
     <form id="f" onsubmit="return false">
       <div class="row">
         <div>
@@ -72,55 +71,53 @@
 
       <div class="row">
         <div>
-          <label>Product category</label>
-          <select name="product_category">
-            <option value="general">General</option>
-            <option value="beverage">Beverage</option>
-            <option value="chocolate">Chocolate & Cocoa</option>
-            <option value="meat">Meat</option>
-            <option value="fish">Fish</option>
-            <option value="supplement">Food Supplement</option>
-            <option value="baby">Infant / Baby Food</option>
-            <option value="honey">Honey</option>
-            <option value="olive_oil">Olive Oil</option>
-          </select>
+          <label>Label file (JPG/PNG or PDF)</label>
+          <input name="label_file" type="file" accept="image/*,.pdf" required />
+          <small>Front-on, readable images work best. PDF is parsed for text only.</small>
         </div>
         <div>
-          <label>Label image (JPG/PNG)</label>
-          <input name="label_image" type="file" accept="image/*" required />
-          <small>Large images may take longer. Clear, straight photos work best.</small>
+          <label>Optional TDS file (.pdf, .docx, .md, .txt)</label>
+          <input name="tds_file" type="file" accept=".pdf,.docx,.md,.txt" />
         </div>
       </div>
 
-      <label>Optional: extra rules or buyer requirements (used only for this report)</label>
-      <textarea name="reference_docs_text" rows="4" placeholder="Paste internal spec, claims substantiation, or buyer’s requirements..."></textarea>
+      <div class="row">
+        <div>
+          <label>Extra rules / buyer requirements (optional)</label>
+          <textarea name="reference_docs_text" rows="4" placeholder="Paste internal spec, buyer rules, claims substantiation..."></textarea>
+        </div>
+        <div>
+          <label><input type="checkbox" name="halal_audit" /> Enable Halal pre-audit</label><br/>
+          <small>Adds a Halal section (forbidden ingredients, carriers, logo/issuer, segregation).</small>
+        </div>
+      </div>
 
-      <!-- DO NOT SUBMIT THE FORM; we handle click in JS -->
-      <button id="generateBtn" type="button">Generate Compliance Report</button>
+      <button id="generateBtn" type="button">Generate Preflight</button>
     </form>
 
     <div id="out" class="result" style="display:none"></div>
   </div>
 
   <script>
-    const form = document.getElementById('f');
     const out = document.getElementById('out');
     const btn = document.getElementById('generateBtn');
+    const form = document.getElementById('f');
 
-    // Resize to <=1600px, JPEG quality 0.85 to keep payload small
-    async function fileToDataUrl(file) {
-      if (!file) return null;
-      const img = await new Promise((resolve, reject) => {
-        const fr = new FileReader();
-        fr.onload = () => {
-          const i = new Image();
-          i.onload = () => resolve(i);
-          i.onerror = reject;
-          i.src = fr.result;
-        };
+    async function fileToDataUrlImage(file) {
+      const fr = new FileReader();
+      const dataUrl = await new Promise((resolve, reject) => {
+        fr.onload = () => resolve(fr.result);
         fr.onerror = reject;
         fr.readAsDataURL(file);
       });
+
+      const img = await new Promise((resolve, reject) => {
+        const i = new Image();
+        i.onload = () => resolve(i);
+        i.onerror = reject;
+        i.src = dataUrl;
+      });
+
       const maxDim = 1600;
       let { width, height } = img;
       if (width > maxDim || height > maxDim) {
@@ -129,31 +126,44 @@
         height = Math.round(height * scale);
       }
       const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
+      canvas.width = width; canvas.height = height;
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, width, height);
       return canvas.toDataURL('image/jpeg', 0.85);
     }
 
+    async function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(fr.result); // data:*/*;base64,....
+        fr.onerror = reject;
+        fr.readAsDataURL(file);
+      });
+    }
+
     async function handleGenerate() {
-      // build payload from the form
+      btn.disabled = true;
+      out.style.display = 'block';
+      out.textContent = 'Processing…';
+
       const fd = new FormData(form);
       const payload = Object.fromEntries(fd.entries());
       payload.languages_provided = (payload.languages_provided || '')
         .split(',').map(s => s.trim()).filter(Boolean);
+      payload.halal_audit = !!fd.get('halal_audit');
 
-      const imgFile = fd.get('label_image');
-      if (!imgFile || !imgFile.size) {
-        alert('Please choose a label image (JPG/PNG).');
-        return;
+      const labelFile = fd.get('label_file');
+      if (!labelFile || !labelFile.size) { alert('Please choose a label file.'); btn.disabled = false; return; }
+      if (labelFile.type === 'application/pdf' || /\.pdf$/i.test(labelFile.name)) {
+        payload.label_pdf_file = { name: labelFile.name, base64: await fileToBase64(labelFile) };
+      } else {
+        payload.label_image_data_url = await fileToDataUrlImage(labelFile);
       }
 
-      payload.label_image_data_url = await fileToDataUrl(imgFile);
-
-      out.style.display = 'block';
-      out.textContent = 'Processing…';
-      btn.disabled = true;
+      const tds = fd.get('tds_file');
+      if (tds && tds.size) {
+        payload.tds_file = { name: tds.name, base64: await fileToBase64(tds) };
+      }
 
       try {
         const res = await fetch('/api/labelcheck', {
@@ -162,51 +172,70 @@
           body: JSON.stringify(payload)
         });
 
-        const raw = await res.text(); // support non-JSON errors
+        const raw = await res.text();
         let data;
         try { data = JSON.parse(raw); }
         catch { out.textContent = 'Server error:\n' + raw; btn.disabled = false; return; }
 
         if (data.error) throw new Error(data.error);
 
+        // Render summary + score
+        const esc = s => (s==null ? "" : String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"));
         const status = data.report?.overall_status || 'caution';
         const badge = `<span class="badge ${status}">${status.toUpperCase()}</span>`;
-        const head = `${badge} ${data.report?.summary || ''}`;
-
-        // Pretty product view (no raw JSON)
+        const score = data.score ?? '-';
         const prod = data.report?.product || {};
-        const esc = (s) => (s==null ? "" : String(s)
-          .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"));
-        const prodHtml = `
-          <div style="margin-top:8px">
-            <strong>Product</strong>
-            <div style="margin-top:6px; padding:10px; border:1px solid #2a3975; border-radius:10px; background:#0b122c;">
-              <div><b>Name:</b> ${esc(prod.name) || "-"}</div>
-              <div><b>Country of sale:</b> ${esc(prod.country_of_sale) || "-"}</div>
-              <div><b>Languages:</b> ${(prod.languages_provided || []).join(", ") || "-"}</div>
-            </div>
+        let html = `${badge} <b>Score:</b> ${score}/100<br/>
+          <div class="sectionTitle">Product</div>
+          <div style="margin-top:6px; padding:10px; border:1px solid #2a3975; border-radius:10px; background:#0b122c;">
+            <div><b>Name:</b> ${esc(prod.name) || "-"}</div>
+            <div><b>Country of sale:</b> ${esc(prod.country_of_sale) || "-"}</div>
+            <div><b>Languages:</b> ${(prod.languages_provided || []).join(", ") || "-"}</div>
+            <div><b>Halal pre-audit:</b> ${data.halal_audit ? "ON" : "OFF"}</div>
           </div>
-        `;
+          <div class="sectionTitle">EU 1169/2011 Checks</div>`;
 
-        let html = `${head}${prodHtml}<br><strong>Checks</strong><br>`;
         for (const c of (data.report?.checks || [])) {
           html += `• [${(c.status||'').toUpperCase()} | ${c.severity}] ${c.title}<br>`;
-          if (c.detail) html += `<span class="pre">- ${c.detail}</span><br>`;
-          if (c.fix)    html += `→ <span class="pre">Fix: ${c.fix}</span><br>`;
+          if (c.detail) html += `<span class="pre">- ${esc(c.detail)}</span><br>`;
+          if (c.status !== 'ok') {
+            if (c.fix) html += `→ <span class="pre">Fix: ${esc(c.fix)}</span><br>`;
+            if (Array.isArray(c.sources) && c.sources.length) {
+              html += `<span class="pre">Sources: ${esc(c.sources.join("; "))}</span><br>`;
+            }
+          }
           html += `<br>`;
         }
 
-        out.innerHTML = html;
-
-        if (data.pdf_base64) {
-          const a = document.createElement('a');
-          a.href = 'data:application/pdf;base64,' + data.pdf_base64;
-          a.download = 'Compliance_Report.pdf';
-          a.textContent = 'Download PDF Report';
-          a.style.display = 'inline-block';
-          a.style.marginTop = '6px';
-          out.appendChild(a);
+        if (Array.isArray(data.halal_checks) && data.halal_checks.length) {
+          html += `<div class="sectionTitle">Halal Pre-Audit</div>`;
+          for (const c of data.halal_checks) {
+            html += `• [${(c.status||'').toUpperCase()} | ${c.severity}] ${esc(c.title || "Halal check")}<br>`;
+            if (c.detail) html += `<span class="pre">- ${esc(c.detail)}</span><br>`;
+            if (c.status !== 'ok') {
+              if (c.fix) html += `→ <span class="pre">Fix: ${esc(c.fix)}</span><br>`;
+              if (Array.isArray(c.sources) && c.sources.length) {
+                html += `<span class="pre">Sources: ${esc(c.sources.join("; "))}</span><br>`;
+              }
+            }
+            html += `<br>`;
+          }
         }
+
+        // Downloads
+        html += `<div class="downloads">`;
+        if (data.pdf_base64) {
+          const pdfHref = 'data:application/pdf;base64,' + data.pdf_base64;
+          html += `<a download="Preflight_Report.pdf" href="${pdfHref}"><button type="button">Download PDF</button></a>`;
+        }
+        if (data.fixpack_text) {
+          const blob = new Blob([data.fixpack_text], { type: 'text/plain' });
+          const url = URL.createObjectURL(blob);
+          html += `<a download="Fix_Pack.txt" href="${url}"><button type="button">Download Fix Pack</button></a>`;
+        }
+        html += `</div>`;
+
+        out.innerHTML = html;
 
       } catch (err) {
         out.textContent = 'Error: ' + (err?.message || err);
@@ -215,8 +244,7 @@
       }
     }
 
-    // Click handler instead of submit (prevents page refresh even if JS attaches late)
-    btn.addEventListener('click', handleGenerate);
+    document.getElementById('generateBtn').addEventListener('click', handleGenerate);
   </script>
 </body>
 </html>
