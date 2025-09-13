@@ -6,298 +6,347 @@
 <title>Nexodify’s Label Compliance Preflight</title>
 <style>
   :root{
-    --bg:#0b1020;--card:#121833;--ink:#eaf0ff;--muted:#9fb0d7;--line:#1e2a5a;
-    --brand:#4f7dff;--ok:#18c37d;--warn:#ffb020;--bad:#ff4d4d
+    --bg:#0b1020;--ink:#eaf0ff;--muted:#a6b4da;--line:#1f2a5b;--card:#11183a;
+    --chip:#1c2755;--brand:#5b84ff;--ok:#18c37d;--warn:#ffb020;--bad:#ff5a5a;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif}
-  .wrap{max-width:1100px;margin:28px auto;padding:0 16px}
-  header{margin-bottom:16px}
-  h1{margin:0;font-size:26px}
-  .tagline{color:var(--muted);margin-top:6px}
+  .wrap{max-width:1040px;margin:26px auto;padding:0 18px}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+  .dot{width:18px;height:18px;border-radius:6px;background:var(--brand);box-shadow:0 0 24px rgba(91,132,255,.45)}
+  h1{margin:0;font-size:24px}
+  .tagline{color:var(--muted);margin-top:2px}
+  .subtag{color:#7e8dbd;font-size:12px;margin-top:2px}
+
   .grid{display:grid;gap:14px}
-  @media (min-width:1000px){.grid.two{grid-template-columns: 1fr 1.05fr}}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 10px 28px rgba(0,0,0,.28)}
-  .card.full{grid-column:1/-1}
-  label{font-weight:700;font-size:13px;margin-bottom:6px;display:block}
-  input,select,textarea{width:100%;background:#0f1530;border:1px solid #2a3975;border-radius:12px;color:var(--ink);padding:10px}
+  @media (min-width:980px){.grid.two{grid-template-columns:1fr 1fr}}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
+  .card h3{margin:0 0 10px 0;font-size:14px;letter-spacing:.2px;color:#d6defb}
+
+  label{font-weight:700;font-size:12px;margin-bottom:6px;display:block}
+  input,select,textarea{width:100%;background:#0f1530;border:1px solid #2b3a78;border-radius:10px;color:var(--ink);padding:10px}
   textarea{resize:vertical}
-  .row{display:grid;gap:12px}
+  .row{display:grid;gap:10px}
   .two{grid-template-columns:1fr 1fr}
-  .help{color:var(--muted);font-size:12px}
-  .btn{display:inline-block;background:var(--brand);border:0;color:#fff;font-weight:800;border-radius:12px;padding:12px 16px;cursor:pointer}
-  .btn.secondary{background:#2a3975}
+
+  .drop{
+    border:1px dashed #3950a3;background:#0e1430;border-radius:12px;
+    padding:14px;text-align:center;color:#c7d3ff
+  }
+  .help{color:var(--muted);font-size:12px;margin-top:6px}
+  .toolbar{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
+  .btn{background:var(--brand);border:0;color:#fff;font-weight:800;border-radius:10px;padding:12px 16px;cursor:pointer}
+  .btn.secondary{background:#2b3a78}
   .btn[disabled]{opacity:.6;pointer-events:none}
-  .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
-  .chip{display:inline-block;padding:4px 10px;border-radius:999px;background:#1d2a56;color:#cbd5ff;font-size:12px;border:1px solid #2a3975;margin-right:8px}
-  .chip.ok{background:#0f3b2b;color:#b7f8da;border-color:#17634a}
-  .chip.warn{background:#4a3700;color:#ffe2a8;border-color:#6b520a}
-  .chip.bad{background:#4a0e0e;color:#ffc1c1;border-color:#7f2f35}
-  .badge{display:inline-block;padding:3px 10px;border-radius:999px;font-weight:900;margin-right:8px}
-  .pass{background:var(--ok);color:#032015}
-  .caution{background:var(--warn);color:#2a1a00}
-  .fail{background:var(--bad);color:#2a0202}
-  .kv{color:#d6defa}
-  .pre{white-space:pre-wrap;background:#0e1532;border:1px solid #2a3975;border-radius:10px;padding:10px;color:#d4dcff}
-  .sub{font-weight:900;color:#d7defa;margin-bottom:6px}
-  .hint{color:var(--muted);font-size:12px}
-  .checks{padding:6px 0}
-  .check{background:#0e1532;border:1px solid #2a3975;border-left-width:4px;border-radius:10px;padding:10px;margin:8px 0}
+
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}
+  .chip{padding:4px 10px;border-radius:999px;background:var(--chip);border:1px solid #2b3a78;color:#cfd8ff;font-size:12px}
+  .badge{display:inline-block;padding:4px 10px;border-radius:999px;font-weight:900;margin-right:6px}
+  .pass{background:var(--ok);color:#081e13}
+  .caution{background:var(--warn);color:#231600}
+  .fail{background:var(--bad);color:#200707}
+
+  .section{margin-top:14px}
+  .pre{white-space:pre-wrap;background:#0e1532;border:1px solid #2b3a78;border-radius:10px;padding:10px;color:#d6defb}
+  .checks{padding-top:4px}
+  .check{background:#0e1532;border:1px solid #2b3a78;border-left:4px solid #2b3a78;border-radius:10px;padding:10px;margin:8px 0}
   .check.ok{border-left-color:var(--ok)}
   .check.med{border-left-color:#ffb020}
-  .check.bad{border-left-color:#ff6262}
-  .title{font-weight:800}
+  .check.bad{border-left-color:#ff5a5a}
+  .check .ttl{font-weight:800}
+  .hint{color:var(--muted);font-size:12px}
+  .downloads{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 </style>
 </head>
 <body>
   <div class="wrap">
     <header>
-      <h1>Nexodify’s Label Compliance Preflight</h1>
-      <div class="tagline">Cited. Actionable. Production-ready.</div>
+      <div class="dot"></div>
+      <div>
+        <h1>Nexodify’s Label Compliance Preflight</h1>
+        <div class="tagline">Cited. Actionable. Production-ready.</div>
+        <div class="subtag">EU 1169/2011 preflight • optional Halal pre-audit • PDF report</div>
+      </div>
     </header>
 
+    <!-- Form: Product / Company -->
     <div class="grid two">
-      <!-- LEFT: FORM -->
       <div class="card">
+        <h3>Product</h3>
         <div class="row two">
           <div>
             <label>Product name</label>
-            <input id="product_name" placeholder="Amarene candite sgocciolate">
+            <input id="product_name" placeholder="Pasta di Ceci">
           </div>
           <div>
-            <label>Company name</label>
-            <input id="company_name" placeholder="ITALPROD S.R.L.">
-          </div>
-        </div>
-
-        <div class="row two" style="margin-top:8px">
-          <div>
-            <label>Company email (report will be sent here)</label>
-            <input id="company_email" placeholder="qa@acme.com">
-          </div>
-          <div>
-            <label>Country of sale</label>
-            <input id="country_of_sale" placeholder="Italy">
-          </div>
-        </div>
-
-        <div class="row two" style="margin-top:8px">
-          <div>
-            <label>Languages on label (ISO codes, comma)</label>
-            <input id="languages_provided" placeholder="it,en">
-          </div>
-          <div>
-            <label>Shipping scope</label>
-            <select id="shipping_scope">
-              <option>Local / Domestic</option>
-              <option>EU Single Market</option>
-              <option>Global</option>
+            <label>Category</label>
+            <select id="product_category">
+              <option>General</option>
+              <option>Confectionery</option>
+              <option>Beverage</option>
+              <option>Dairy</option>
+              <option>Meat / Fish</option>
             </select>
           </div>
         </div>
 
         <div class="row two" style="margin-top:8px">
           <div>
-            <label>Label file (JPG/PNG or PDF)</label>
-            <input id="label_file" type="file" accept="image/*,application/pdf">
-            <div class="help">Front-on, readable images work best. PDF text is parsed.</div>
+            <label>Country of sale</label>
+            <input id="country_of_sale" placeholder="Italy">
           </div>
           <div>
-            <label>Optional TDS file (.pdf, .docx, .md, .txt)</label>
-            <input id="tds_file" type="file" accept="application/pdf,.doc,.docx,.md,.txt">
+            <label>Languages on label (ISO, comma)</label>
+            <input id="languages_provided" placeholder="it,en">
           </div>
         </div>
 
-        <div style="margin-top:10px">
-          <label>Extra rules / buyer requirements (optional)</label>
-          <textarea id="reference_docs_text" rows="4" placeholder="Paste internal spec, buyer rules, claims substantiation..."></textarea>
-          <div class="help">If omitted, the engine uses EU baseline and our internal database.</div>
-        </div>
-
-        <!-- Halal toggle kept OUTSIDE the textarea, same line height, no overlap -->
-        <div class="row" style="grid-template-columns:auto 1fr;align-items:center;margin-top:12px">
-          <input id="halal_audit" type="checkbox" style="width:18px;height:18px;margin:0 6px 0 0">
-          <div>
-            <label style="margin:0">Enable Halal pre-audit</label>
-            <div class="help">Adds checks for forbidden ingredients, carriers/solvents, logo/issuer, segregation.</div>
-          </div>
-        </div>
-
-        <div class="toolbar">
-          <button class="btn" id="goBtn">Generate Preflight</button>
-          <button class="btn secondary" id="resetBtn" type="button">Reset</button>
+        <div style="margin-top:8px">
+          <label>Shipping scope</label>
+          <select id="shipping_scope">
+            <option>Local / Domestic</option>
+            <option>EU Single Market</option>
+            <option>Global</option>
+          </select>
         </div>
       </div>
 
-      <!-- RIGHT: RESULTS -->
-      <div class="card" id="results" style="display:none"></div>
+      <div class="card">
+        <h3>Company</h3>
+        <div>
+          <label>Company name</label>
+          <input id="company_name" placeholder="ACME Foods S.r.l.">
+        </div>
+        <div style="margin-top:8px">
+          <label>Company email (report will be sent here)</label>
+          <input id="company_email" placeholder="qa@acme.com; qa2@acme.com">
+          <div class="help">Multiple emails allowed (comma or semicolon).</div>
+        </div>
+      </div>
+    </div>
 
-      <!-- Downloads card appears inside results rendering, but keep space: -->
-      <div class="card full" id="downloadsShell" style="display:none"></div>
+    <!-- Files -->
+    <div class="grid two" style="margin-top:14px">
+      <div class="card">
+        <h3>Label file (JPG/PNG or PDF)</h3>
+        <div id="labelDrop" class="drop">Drag & drop or click to choose</div>
+        <input id="label_file" type="file" accept="image/*,application/pdf" style="display:none">
+        <div id="labelMeta" class="help">No file chosen.</div>
+        <div class="help">Front-on, readable images work best. PDF text is parsed for text only.</div>
+      </div>
+
+      <div class="card">
+        <h3>Optional TDS (.pdf, .docx, .md, .txt)</h3>
+        <div id="tdsDrop" class="drop">Drag & drop or click to attach</div>
+        <input id="tds_file" type="file" accept="application/pdf,.doc,.docx,.md,.txt" style="display:none">
+        <div id="tdsMeta" class="help">No file chosen.</div>
+      </div>
+    </div>
+
+    <!-- Extra rules -->
+    <div class="card" style="margin-top:14px">
+      <h3>Extra rules / buyer requirements (optional)</h3>
+      <textarea id="reference_docs_text" rows="5" placeholder="Paste internal spec, buyer rules, claims substantiation..."></textarea>
+      <div class="help">If omitted, the engine uses EU baseline and our internal database.</div>
+    </div>
+
+    <!-- Options -->
+    <div class="card" style="margin-top:14px">
+      <h3>Options</h3>
+      <div class="row" style="grid-template-columns:auto 1fr;align-items:center">
+        <input id="halal_audit" type="checkbox" style="width:18px;height:18px;margin:0 8px 0 4px">
+        <div>
+          <div style="font-weight:700">Enable Halal pre-audit</div>
+          <div class="help">Adds checks for forbidden ingredients, carriers/solvents, logo/issuer, segregation.</div>
+        </div>
+      </div>
+      <div class="toolbar">
+        <button class="btn secondary" id="resetBtn" type="button">Reset</button>
+        <button class="btn" id="goBtn">Generate Preflight</button>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div id="results" style="margin-top:16px;display:none">
+      <div class="card" id="summaryCard"></div>
+      <div id="checksWrap"></div>
+      <div class="card downloads" id="downloadsCard" style="display:none"></div>
     </div>
   </div>
 
 <script>
-/* ========= helpers ========= */
+/* ------------------ Helpers ------------------ */
 const $ = (id)=>document.getElementById(id);
-const out = $("results");
+const esc = (s)=>String(s??"").replace(/[&<>]/g,c=>({ "&":"&amp;","<":"&lt;",">":"&gt;" }[c]));
+const isArray = (v)=>Array.isArray(v);
+const fmtKB = (n)=>Math.round((n||0)/1024);
+
+function overallClass(s){ s=(s||"caution").toLowerCase(); return s==="pass"?"pass":s==="fail"?"fail":"caution"; }
+
+function toDataURL(file){
+  return new Promise((resolve,reject)=>{
+    const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=reject; r.readAsDataURL(file);
+  });
+}
+
+function renderCheck(c){
+  const lane = c.status==="ok" ? "ok" : (c.severity==="high" ? "bad" : "med");
+  return `<div class="card check ${lane}">
+    <div class="ttl">${esc(c.title||"-")} <span class="chip" style="margin-left:6px">${esc((c.status||"").toUpperCase())}${c.severity?` · ${esc(c.severity)}`:""}</span></div>
+    ${c.detail ? `<div>${esc(c.detail)}</div>` : ""}
+    ${c.status!=="ok" && c.fix ? `<div>→ <i>${esc(c.fix)}</i></div>` : ""}
+    ${isArray(c.sources)&&c.sources.length ? `<div class="hint">Sources: ${c.sources.map(esc).join("; ")}</div>` : ""}
+  </div>`;
+}
+
+function renderChecksBlock(title, arr){
+  if(!isArray(arr)||!arr.length) return "";
+  return `<div class="section"><div class="card"><h3>${esc(title)}</h3><div class="checks">${arr.map(renderCheck).join("")}</div></div></div>`;
+}
+
+/* ------------------ Form wiring ------------------ */
+const productName = $("product_name");
+const productCategory = $("product_category");
+const companyName = $("company_name");
+const companyEmail = $("company_email");
+const countrySale = $("country_of_sale");
+const languagesProvided = $("languages_provided");
+const shippingScope = $("shipping_scope");
+const labelInput = $("label_file");
+const tdsInput = $("tds_file");
+const labelDrop = $("labelDrop");
+const tdsDrop = $("tdsDrop");
+const labelMeta = $("labelMeta");
+const tdsMeta = $("tdsMeta");
+const extraRules = $("reference_docs_text");
+const halalToggle = $("halal_audit");
+
 const goBtn = $("goBtn");
 const resetBtn = $("resetBtn");
 
-const productName = $("product_name");
-const companyName = $("company_name");
-const companyEmail = $("company_email");
-const countrySale  = $("country_of_sale");
-const langs        = $("languages_provided");
-const scope        = $("shipping_scope");
-const labelInput   = $("label_file");
-const tdsInput     = $("tds_file");
-const extraRules   = $("reference_docs_text");
-const halalToggle  = $("halal_audit");
+const results = $("results");
+const summaryCard = $("summaryCard");
+const checksWrap = $("checksWrap");
+const downloadsCard = $("downloadsCard");
 
-const downloadsShell = $("downloadsShell");
+function setLoading(b){ goBtn.disabled=b; goBtn.textContent=b?"Generating…":"Generate Preflight"; }
 
-function esc(s){return String(s??"").replace(/[&<>]/g,c=>({ "&":"&amp;","<":"&lt;",">":"&gt;" }[c]))}
-const isArray = (v)=>Array.isArray(v);
-
-const toDataURL = (file)=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file);});
-const fmtKB = (n)=>Math.round((n||0)/1024);
-
-function statusClass(overall){overall=(overall||"caution").toLowerCase();return overall==="pass"?"pass":overall==="fail"?"fail":"caution"}
-
-function checkPill(c){
-  const cls = c.status==="ok" ? "ok" : (c.severity==="high"?"bad":"med");
-  return `<div class="check ${cls}">
-    <div class="title">${esc(c.title||"-")} <span class="chip" style="margin-left:6px">${esc((c.status||"").toUpperCase())}${c.severity?` · ${esc(c.severity)}`:""}</span></div>
-    ${c.detail?`<div>${esc(c.detail)}</div>`:""}
-    ${c.status!=="ok" && c.fix ? `<div>→ <i>${esc(c.fix)}</i></div>`:""}
-    ${isArray(c.sources)&&c.sources.length?`<div class="hint">Sources: ${c.sources.map(esc).join("; ")}</div>`:""}
-  </div>`;
+/* Dropzones */
+function wireDrop(zone,input,meta){
+  const setMeta = (f)=>meta.textContent = f ? `${f.name} (${Math.round(f.size/1024)} KB)` : "No file chosen.";
+  zone.addEventListener("click",()=>input.click());
+  zone.addEventListener("dragover",e=>{e.preventDefault(); zone.style.borderColor="#6f90ff";});
+  zone.addEventListener("dragleave",()=>zone.style.borderColor="#3950a3");
+  zone.addEventListener("drop",e=>{
+    e.preventDefault(); zone.style.borderColor="#3950a3";
+    const f=e.dataTransfer.files?.[0]; if(!f) return;
+    input.files = e.dataTransfer.files; setMeta(f);
+  });
+  input.addEventListener("change",()=>setMeta(input.files[0]));
 }
+wireDrop(labelDrop,labelInput,labelMeta);
+wireDrop(tdsDrop,tdsInput,tdsMeta);
 
-function renderChecks(title, arr){
-  if(!isArray(arr)||!arr.length) return "";
-  return `<div class="card full">
-    <div class="sub">${esc(title)}</div>
-    <div class="checks">${arr.map(checkPill).join("")}</div>
-  </div>`;
+/* Reset */
+function resetAll(){
+  [productName, companyName, companyEmail, countrySale, languagesProvided].forEach(el=>el.value="");
+  productCategory.selectedIndex = 0; shippingScope.selectedIndex=0; halalToggle.checked=false; extraRules.value="";
+  labelInput.value=""; tdsInput.value=""; labelMeta.textContent="No file chosen."; tdsMeta.textContent="No file chosen.";
+  results.style.display="none"; summaryCard.innerHTML=""; checksWrap.innerHTML=""; downloadsCard.style.display="none"; downloadsCard.innerHTML="";
 }
+resetBtn.addEventListener("click", resetAll);
 
-function setLoading(b){goBtn.disabled=b; goBtn.textContent = b? "Generating…":"Generate Preflight";}
-
-/* ========= main ========= */
-async function generate(){
+/* Generate */
+goBtn.addEventListener("click", async ()=>{
   try{
     setLoading(true);
-    out.style.display = "block";
-    out.innerHTML = '<div class="pre">Running…</div>';
-    downloadsShell.style.display = "none";
-    downloadsShell.innerHTML = "";
+    results.style.display="block";
+    summaryCard.innerHTML = '<div class="pre">Running…</div>';
+    checksWrap.innerHTML=""; downloadsCard.style.display="none"; downloadsCard.innerHTML="";
 
     const fields = {
       product_name: productName.value.trim(),
       company_name: companyName.value.trim(),
-      company_email: companyEmail.value.trim(), // supports multiple, comma/semicolon separated on the server
+      company_email: companyEmail.value.trim(), // allow multi (comma/semicolon) – server splits
       country_of_sale: countrySale.value.trim(),
-      languages_provided: (langs.value||"").split(",").map(s=>s.trim()).filter(Boolean),
-      shipping_scope: scope.value,
-      product_category: "General",
+      languages_provided: (languagesProvided.value||"").split(/[,;]\s*|,\s*|\s*,\s*/).map(s=>s.trim()).filter(Boolean),
+      shipping_scope: shippingScope.value,
+      product_category: productCategory.value,
       reference_docs_text: extraRules.value,
       halal_audit: halalToggle.checked
     };
 
-    // Files
     if(labelInput.files[0]){
       const lf = labelInput.files[0];
       const b64 = await toDataURL(lf);
-      if(lf.type==="application/pdf"){
-        fields.label_pdf_file = { name: lf.name, base64: b64 };
-      }else{
-        fields.label_image_data_url = b64;
-      }
+      if(lf.type==="application/pdf") fields.label_pdf_file = { name: lf.name, base64: b64 };
+      else fields.label_image_data_url = b64;
     }
     if(tdsInput.files[0]){
       const tf = tdsInput.files[0];
       fields.tds_file = { name: tf.name, base64: await toDataURL(tf) };
     }
 
-    const res = await fetch("/api/labelcheck", {
+    const resp = await fetch("/api/labelcheck", {
       method:"POST",
       headers:{ "Content-Type":"application/json" },
       body: JSON.stringify(fields)
     });
-    const data = await res.json();
+    const data = await resp.json();
 
-    const overall = data.report?.overall_status || "caution";
-    const status  = statusClass(overall);
-    const score   = (data.score ?? data.report?.score ?? "-");
-    const prod    = data.report?.product || {};
+    const overall = (data.report?.overall_status || "caution");
+    const badgeCls = overallClass(overall);
+    const score = data.score ?? data.report?.score ?? "-";
+    const prod = data.report?.product || {};
 
-    // Top card
-    let html = `<div class="card full">
-      <span class="badge ${status}">${esc(overall.toUpperCase())}</span>
-      <span class="chip">Score ${esc(score)}/100</span>
-      <span class="chip">Halal: ${data.halal_audit?'ON':'OFF'}</span>
-      ${data.email_status ? `<span class="chip">Email: ${esc(data.email_status)}</span>` : ''}
-      ${data.pdf_len ? `<span class="chip">PDF: ${esc(data.pdf_len)}</span>` : ''}
-
-      <div class="row two" style="margin-top:10px">
-        <div class="kv"><b>Name:</b> ${esc(prod.name)||'-'}</div>
-        <div class="kv"><b>Country:</b> ${esc(prod.country_of_sale)||'-'}</div>
+    // Summary card
+    summaryCard.innerHTML = `
+      <div class="chips">
+        <span class="badge ${badgeCls}">${esc(overall.toUpperCase())}</span>
+        <span class="chip">Score ${esc(score)}/100</span>
+        <span class="chip">Halal: ${data.halal_audit?'ON':'OFF'}</span>
+        ${data.email_status ? `<span class="chip">Email: ${esc(data.email_status)}</span>` : ''}
+        ${data.pdf_len ? `<span class="chip">PDF: ${esc(data.pdf_len)}</span>` : ''}
       </div>
-      <div class="kv" style="margin-top:4px"><b>Languages:</b> ${(prod.languages_provided||[]).join(', ')||'-'}</div>
-      ${data.report?.summary ? `<div class="pre" style="margin-top:10px">${esc(data.report.summary)}</div>` : ''}
-    </div>`;
+      <div class="row two" style="margin-top:6px">
+        <div><b>Name:</b> ${esc(prod.name)||'-'}</div>
+        <div><b>Country:</b> ${esc(prod.country_of_sale)||'-'}</div>
+      </div>
+      <div style="margin-top:4px"><b>Languages:</b> ${(prod.languages_provided||[]).join(', ')||'-'}</div>
+      ${data.report?.summary ? `<div class="pre" style="margin-top:8px">${esc(data.report.summary)}</div>` : ''}
+    `;
 
-    // Checks
-    html += renderChecks('EU 1169/2011 Checks', data.report?.checks);
+    // Checks (EU + Halal)
+    let blocks = '';
+    blocks += renderChecksBlock("EU 1169/2011 Checks", data.report?.checks);
     if(isArray(data.halal_checks) && data.halal_checks.length){
-      html += renderChecks('Halal Pre-Audit', data.halal_checks);
+      blocks += renderChecksBlock("Halal Pre-Audit", data.halal_checks);
     }
+    checksWrap.innerHTML = blocks;
 
-    // Downloads card (PDF + diagnostics)
+    // Downloads card
     const pdfReady = !!(data.pdf_len && data.pdf_len > 1000 && data.pdf_base64);
-    const downloads = `
+    downloadsCard.style.display = "flex";
+    downloadsCard.innerHTML = `
       <div>
-        <div class="sub">Downloads</div>
-        ${pdfReady ? `<div class="hint">PDF ready (${fmtKB(data.pdf_len)} KB)</div>` :
-          `<div class="hint">PDF unavailable${data.pdf_error ? ' — ' + esc(data.pdf_error) : ''}</div>`}
+        <div style="font-weight:900">Downloads</div>
+        ${pdfReady
+          ? `<div class="hint">PDF ready (${fmtKB(data.pdf_len)} KB)</div>`
+          : `<div class="hint">PDF unavailable${data.pdf_error?' — '+esc(data.pdf_error):''}</div>`}
       </div>
       <div>
         ${pdfReady ? `
           <a download="Preflight_Report.pdf" href="data:application/pdf;base64,${data.pdf_base64}">
             <button class="btn" type="button">Download Report (PDF)</button>
           </a>` : ``}
-      </div>`;
-
-    out.innerHTML = html;
-
-    downloadsShell.style.display = "flex";
-    downloadsShell.style.alignItems = "center";
-    downloadsShell.style.justifyContent = "space-between";
-    downloadsShell.style.gap = "10px";
-    downloadsShell.innerHTML = downloads;
-
-    out.scrollIntoView({behavior:'smooth', block:'start'});
-  }catch(e){
-    out.innerHTML = '<div class="card"><h3>Error</h3><div class="pre">'+esc(e?.message||e)+'</div></div>';
+      </div>
+    `;
+  }catch(err){
+    summaryCard.innerHTML = `<div class="pre">Error: ${esc(err?.message||err)}</div>`;
   }finally{
     setLoading(false);
   }
-}
-
-function resetAll(){
-  productName.value = companyName.value = companyEmail.value = countrySale.value = "";
-  langs.value = ""; scope.selectedIndex = 0; extraRules.value = ""; halalToggle.checked = false;
-  labelInput.value = ""; tdsInput.value = "";
-  out.innerHTML = ""; out.style.display = "none";
-  downloadsShell.style.display = "none"; downloadsShell.innerHTML = "";
-}
-
-/* ========= events ========= */
-document.addEventListener('DOMContentLoaded', ()=>{
-  goBtn.addEventListener('click', generate);
-  resetBtn.addEventListener('click', resetAll);
 });
 </script>
 </body>
