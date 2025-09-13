@@ -1,10 +1,9 @@
 // api/labelcheck.js
 export const config = { runtime: "nodejs" };
 
-/* ========= BRAND & EMAIL ========= */
+/* ========= BRAND ========= */
 const APP_NAME = "Nexodify’s Label Compliance Preflight";
-const DEFAULT_FROM = `${APP_NAME} <onboarding@resend.dev>`;
-/* ================================= */
+/* ========================= */
 
 import OpenAI from "openai";
 import PDFDocument from "pdfkit";
@@ -16,7 +15,7 @@ import { fileURLToPath } from "url";
 /* ====== clients / env ====== */
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const resend = new Resend(process.env.RESEND_API_KEY ?? "");
-const RESEND_FROM = process.env.RESEND_FROM || DEFAULT_FROM;
+const RESEND_FROM = process.env.RESEND_FROM || `${APP_NAME} <onboarding@resend.dev>`;
 
 /* ====== utils ====== */
 function sendJson(res, status, obj) {
@@ -134,7 +133,6 @@ async function askHalal({ fields, imageDataUrl, labelPdfText, tdsText, extraText
 }
 
 /* ====== deterministic checks (canonical + de-dupe) ====== */
-
 function keywordFromName(name) {
   if (!name) return "";
   const stop = new Set([
@@ -148,7 +146,6 @@ function keywordFromName(name) {
   for (const w of words) if (!stop.has(w) && w.length > 2) return w;
   return words[0] || "";
 }
-
 const COUNTRY_LANG = {
   italy: "it", germany: "de", france: "fr", spain: "es", portugal: "pt",
   netherlands: "nl", belgium: "nl", austria: "de", denmark: "da",
@@ -156,7 +153,6 @@ const COUNTRY_LANG = {
   czechia: "cs", slovakia: "sk", slovenia: "sl", hungary: "hu", ireland: "en",
   "united kingdom": "en"
 };
-
 function idxAllLike(checks, key) {
   const k = key.toLowerCase();
   const idxs = [];
@@ -172,13 +168,9 @@ function worstSeverity(a,b){
 }
 function dedupeAndCanonicalize(checks, key, canonicalTitle, preferredCheck) {
   const idxs = idxAllLike(checks, key);
-  if (!idxs.length) {
-    checks.push({ ...preferredCheck, title: canonicalTitle });
-    return;
-  }
+  if (!idxs.length) { checks.push({ ...preferredCheck, title: canonicalTitle }); return; }
   const first = idxs[0];
   let merged = { title: canonicalTitle, status: "ok", severity: "low", detail: "", fix: "", sources: [] };
-
   for (const i of idxs) {
     const c = checks[i] || {};
     merged.status  = (c.status !== "ok" || merged.status !== "ok") ? (c.status === "missing" ? "missing" : "issue") : "ok";
@@ -189,7 +181,6 @@ function dedupeAndCanonicalize(checks, key, canonicalTitle, preferredCheck) {
       merged.sources = Array.from(new Set([...(merged.sources||[]), ...c.sources]));
     }
   }
-
   if (preferredCheck && preferredCheck.status && preferredCheck.status !== "ok") {
     merged = {
       ...merged,
@@ -210,11 +201,9 @@ function dedupeAndCanonicalize(checks, key, canonicalTitle, preferredCheck) {
       };
     }
   }
-
   checks[first] = merged;
   for (let j = idxs.length - 1; j >= 1; j--) checks.splice(idxs[j], 1);
 }
-
 function enforce(report, fields, joinedText) {
   report.checks = Array.isArray(report.checks) ? report.checks : [];
 
@@ -224,18 +213,11 @@ function enforce(report, fields, joinedText) {
     const have = Array.isArray(report.product?.languages_provided)
       ? report.product.languages_provided.map(x=>String(x||"").toLowerCase())
       : (fields.languages_provided||[]).map(x=>String(x||"").toLowerCase());
-
     const langPreferred = have.includes(need) ? {
-      title: "Language Compliance",
-      status: "ok",
-      severity: "low",
-      detail: `Includes "${need}" for sale in ${fields.country_of_sale}.`,
-      fix: "",
-      sources: ["EU1169:Art 15"]
+      title: "Language Compliance", status: "ok", severity: "low",
+      detail: `Includes "${need}" for sale in ${fields.country_of_sale}.`, fix: "", sources: ["EU1169:Art 15"]
     } : {
-      title: "Language Compliance",
-      status: "issue",
-      severity: "medium",
+      title: "Language Compliance", status: "issue", severity: "medium",
       detail: `Primary language "${need}" required for ${fields.country_of_sale} not present.`,
       fix: `Add mandatory particulars in "${need}" for sale in ${fields.country_of_sale}.`,
       sources: ["EU1169:Art 15"]
@@ -249,16 +231,10 @@ function enforce(report, fields, joinedText) {
     const quidRegex = new RegExp(`${token}\\s*[^\\n]{0,40}?\\d{1,3}\\s*%`, "i");
     const ok = quidRegex.test(joinedText || "");
     const quidPreferred = ok ? {
-      title: "QUID",
-      status: "ok",
-      severity: "low",
-      detail: `Percentage for "${token}" is present.`,
-      fix: "",
-      sources: ["EU1169:Art 22; Annex VIII"]
+      title: "QUID", status: "ok", severity: "low",
+      detail: `Percentage for "${token}" is present.`, fix: "", sources: ["EU1169:Art 22; Annex VIII"]
     } : {
-      title: "QUID",
-      status: "issue",
-      severity: "high",
+      title: "QUID", status: "issue", severity: "high",
       detail: `Sales name highlights "${token}", but no percentage (%) is found near sales name or in the ingredients list.`,
       fix: `Declare the percentage of "${token}" (e.g., "${token} 60%") near the sales name or in the ingredients list.`,
       sources: ["EU1169:Art 22; Annex VIII"]
@@ -286,49 +262,43 @@ function recomputeScore(report) {
   return { score, overall };
 }
 
-/* ====== PDF: main + fallback ====== */
-function buildPdfBase64(report, halalChecks, fields) {
-  const doc = new PDFDocument({ size: "A4", margin: 36 });
-  const bufs = [];
-  let errorMsg = "";
-  doc.on("data", d => bufs.push(d));
-  doc.on("error", e => { errorMsg = e?.message || String(e); });
+/* ====== PDF: main (await end) + fallback ====== */
+async function buildPdfBase64(report, halalChecks, fields) {
+  return await new Promise((resolve) => {
+    const doc = new PDFDocument({ size: "A4", margin: 36 });
+    const bufs = [];
+    let errorMsg = "";
 
-  const head = (title) => {
-    doc.rect(36, 36, 523, 42).fill("#0f1530");
-    doc.fill("#eaf0ff").fontSize(16).text(title, 44, 48, { width: 510 });
-    doc.moveDown(2).fill("#000");
-  };
+    doc.on("data", (d) => bufs.push(d));
+    doc.on("error", (e) => { errorMsg = e?.message || String(e); });
+    doc.on("end", () => {
+      const pdfBuffer = Buffer.concat(bufs);
+      resolve({ base64: pdfBuffer.toString("base64"), error: errorMsg });
+    });
 
-  head(`${APP_NAME} — Compliance Report`);
-  doc.fontSize(10).fill("#333").text(`Generated: ${new Date().toISOString()}`);
-  doc.moveDown(0.5).text(`Company: ${fields.company_name || "-"}`);
-  const p = report.product || {};
-  doc.text(`Product: ${p.name || "-"}`);
-  doc.text(`Country of sale: ${p.country_of_sale || "-"}`);
-  doc.text(`Languages: ${(p.languages_provided || []).join(", ") || "-"}`);
-  doc.text(`Score: ${report.score}/100   Overall: ${report.overall_status.toUpperCase()}`);
-  doc.moveDown(0.8);
-  if (report.summary) doc.fontSize(11).fill("#000").text(report.summary, { width: 520 });
-  doc.moveDown(1.0);
+    const head = (title) => {
+      doc.rect(36, 36, 523, 42).fill("#0f1530");
+      doc.fill("#eaf0ff").fontSize(16).text(title, 44, 48, { width: 510 });
+      doc.moveDown(2).fill("#000");
+    };
 
-  doc.fontSize(13).fill("#000").text("EU 1169/2011 Checks", { underline: true });
-  doc.moveDown(0.5).fontSize(10);
-  for (const c of report.checks || []) {
-    doc.fill(c.status === "ok" ? "#0a7" : c.severity === "high" ? "#c00" : c.severity === "medium" ? "#c70" : "#000")
-       .text(`• ${c.title} [${c.status.toUpperCase()} | ${c.severity}]`);
-    doc.fill("#000");
-    if (c.detail) doc.text(`Detail: ${c.detail}`);
-    if (c.status !== "ok" && c.fix) doc.text(`Fix: ${c.fix}`);
-    if (Array.isArray(c.sources) && c.sources.length) doc.text(`Sources: ${c.sources.join("; ")}`);
-    doc.moveDown(0.5);
-  }
+    // Cover
+    head(`${APP_NAME} — Compliance Report`);
+    doc.fontSize(10).fill("#333").text(`Generated: ${new Date().toISOString()}`);
+    doc.moveDown(0.5).text(`Company: ${fields.company_name || "-"}`);
+    const p = report.product || {};
+    doc.text(`Product: ${p.name || "-"}`);
+    doc.text(`Country of sale: ${p.country_of_sale || "-"}`);
+    doc.text(`Languages: ${(p.languages_provided || []).join(", ") || "-"}`);
+    doc.text(`Score: ${report.score}/100   Overall: ${report.overall_status.toUpperCase()}`);
+    doc.moveDown(0.8);
+    if (report.summary) doc.fontSize(11).fill("#000").text(report.summary, { width: 520 });
+    doc.moveDown(1.0);
 
-  if (Array.isArray(halalChecks) && halalChecks.length) {
-    doc.addPage();
-    head("Halal Pre-Audit");
-    doc.fontSize(10).fill("#000");
-    for (const c of halalChecks) {
+    // EU checks
+    doc.fontSize(13).fill("#000").text("EU 1169/2011 Checks", { underline: true });
+    doc.moveDown(0.5).fontSize(10);
+    for (const c of report.checks || []) {
       doc.fill(c.status === "ok" ? "#0a7" : c.severity === "high" ? "#c00" : c.severity === "medium" ? "#c70" : "#000")
          .text(`• ${c.title} [${c.status.toUpperCase()} | ${c.severity}]`);
       doc.fill("#000");
@@ -337,49 +307,64 @@ function buildPdfBase64(report, halalChecks, fields) {
       if (Array.isArray(c.sources) && c.sources.length) doc.text(`Sources: ${c.sources.join("; ")}`);
       doc.moveDown(0.5);
     }
-  }
 
-  doc.addPage();
-  head("Fix Pack (copy-paste suggestions)");
-  doc.fontSize(10).fill("#000");
-  for (const c of report.checks || []) {
-    if (c.status === "ok") {
-      doc.fill("#0a7").text(`✓ ${c.title} — OK`);
-      if (Array.isArray(c.sources) && c.sources.length) doc.fill("#555").text(`Sources: ${c.sources.join("; ")}`);
-      doc.fill("#000").moveDown(0.3);
-      continue;
+    // Halal
+    if (Array.isArray(halalChecks) && halalChecks.length) {
+      doc.addPage();
+      head("Halal Pre-Audit");
+      doc.fontSize(10).fill("#000");
+      for (const c of halalChecks) {
+        doc.fill(c.status === "ok" ? "#0a7" : c.severity === "high" ? "#c00" : c.severity === "medium" ? "#c70" : "#000")
+           .text(`• ${c.title} [${c.status.toUpperCase()} | ${c.severity}]`);
+        doc.fill("#000");
+        if (c.detail) doc.text(`Detail: ${c.detail}`);
+        if (c.status !== "ok" && c.fix) doc.text(`Fix: ${c.fix}`);
+        if (Array.isArray(c.sources) && c.sources.length) doc.text(`Sources: ${c.sources.join("; ")}`);
+        doc.moveDown(0.5);
+      }
     }
-    doc.fill("#c00").text(`• ${c.title} [${c.severity.toUpperCase()}]`);
-    doc.fill("#000");
-    if (c.detail) doc.text(`- ${c.detail}`);
-    if (c.fix)   doc.text(`→ Fix: ${c.fix}`);
-    if (Array.isArray(c.sources) && c.sources.length) doc.text(`Sources: ${c.sources.join("; ")}`);
-    doc.moveDown(0.4);
-  }
-  if (Array.isArray(halalChecks)) {
-    for (const c of halalChecks) {
-      if (c.status === "ok") continue;
-      doc.fill("#c00").text(`• Halal: ${c.title} [${c.severity.toUpperCase()}]`);
+
+    // Fix Pack
+    doc.addPage();
+    head("Fix Pack (copy-paste suggestions)");
+    doc.fontSize(10).fill("#000");
+    for (const c of report.checks || []) {
+      if (c.status === "ok") {
+        doc.fill("#0a7").text(`✓ ${c.title} — OK`);
+        if (Array.isArray(c.sources) && c.sources.length) doc.fill("#555").text(`Sources: ${c.sources.join("; ")}`);
+        doc.fill("#000").moveDown(0.3);
+        continue;
+      }
+      doc.fill("#c00").text(`• ${c.title} [${c.severity.toUpperCase()}]`);
       doc.fill("#000");
       if (c.detail) doc.text(`- ${c.detail}`);
       if (c.fix)   doc.text(`→ Fix: ${c.fix}`);
       if (Array.isArray(c.sources) && c.sources.length) doc.text(`Sources: ${c.sources.join("; ")}`);
       doc.moveDown(0.4);
     }
-  }
-  doc.moveDown(1.0);
-  doc.fontSize(8).fill("#667").text(
-    "This preflight is an automated, best-effort screening based on inputs and public/KB references. "+
-    "It is not legal advice or a conclusive compliance opinion. Professional review is recommended.",
-    { width: 520 }
-  );
-  doc.fill("#000");
+    if (Array.isArray(halalChecks)) {
+      for (const c of halalChecks) {
+        if (c.status === "ok") continue;
+        doc.fill("#c00").text(`• Halal: ${c.title} [${c.severity.toUpperCase()}]`);
+        doc.fill("#000");
+        if (c.detail) doc.text(`- ${c.detail}`);
+        if (c.fix)   doc.text(`→ Fix: ${c.fix}`);
+        if (Array.isArray(c.sources) && c.sources.length) doc.text(`Sources: ${c.sources.join("; ")}`);
+        doc.moveDown(0.4);
+      }
+    }
 
-  doc.end();
-  const pdfBuffer = Buffer.concat(bufs);
-  return { base64: pdfBuffer.toString("base64"), error: errorMsg };
+    doc.moveDown(1.0);
+    doc.fontSize(8).fill("#667").text(
+      "This preflight is an automated, best-effort screening based on inputs and public/KB references. "+
+      "It is not legal advice or a conclusive compliance opinion. Professional review is recommended.",
+      { width: 520 }
+    );
+    doc.fill("#000");
+
+    doc.end(); // resolve happens on 'end'
+  });
 }
-
 function buildFallbackPdfBase64(message = "Report generated without full details.") {
   const doc = new PDFDocument({ size: "A4", margin: 36 });
   const bufs = [];
@@ -461,7 +446,7 @@ export default async function handler(req, res) {
       })) : []
     };
 
-    // Deterministic: language + QUID (with de-dupe)
+    // Deterministic enforcement (de-dupe inside)
     const joined = `${(labelPdfText||"")}\n${(tdsText||"")}\n${(reference_docs_text||"")}`.toLowerCase();
     enforce(report, fields, joined);
 
@@ -490,11 +475,11 @@ export default async function handler(req, res) {
       }));
     }
 
-    // PDF (robust, with fallback)
+    // PDF (await 'end')
     let pdf_base64 = "";
     let pdf_error = "";
     try {
-      const r = buildPdfBase64(report, halalChecks, fields);
+      const r = await buildPdfBase64(report, halalChecks, fields);
       pdf_base64 = r.base64;
       pdf_error = r.error || "";
       if (!pdf_base64 || pdf_base64.length < 1000) {
@@ -520,7 +505,7 @@ export default async function handler(req, res) {
                  <p>Attached is your preliminary compliance report for <strong>${fields.product_name || "your product"}</strong>.</p>
                  <p>Best,<br/>${APP_NAME}</p>`,
           attachments: [
-            { filename: "Preflight_Report.pdf", content: pdf_base64 }
+            { filename: "Preflight_Report.pdf", content: pdf_base64, contentType: "application/pdf" }
           ]
         });
         email_status = `sent to ${recipients.length}`;
@@ -531,7 +516,7 @@ export default async function handler(req, res) {
 
     return sendJson(res, 200, {
       ok: true,
-      version: "v6-dedupe",
+      version: "v7-pdfawait",
       report,
       score: report.score,
       halal_audit: !!halal_audit,
