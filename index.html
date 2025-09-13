@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Nexodify’s Label Compliance Preflight — Client Intake</title>
+  <title>Nexodify’s Label Compliance Preflight — Client Intake</title>
   <style>
     :root{
       --bg:#0c1022;--bg2:#0f1430;--panel:#111736;--panel-2:#0b122c;
@@ -21,13 +21,10 @@
         radial-gradient(1000px 1000px at 110% -10%, #17204e 0%, transparent 50%),
         var(--bg);
     }
-    .container{max-width:1100px;margin:32px auto;padding:0 20px}
+    .container{max-width:1100px;margin:32px auto;padding:0 20px 140px}
     header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
     .brand{display:flex;align-items:center;gap:10px}
-    .brandLogo{
-      width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#6aa3ff,#4f7dff 60%,#3b5cff);
-      box-shadow:var(--shadow);
-    }
+    .brandLogo{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#6aa3ff,#4f7dff 60%,#3b5cff);box-shadow:var(--shadow)}
     h1{margin:0;font-size:26px;letter-spacing:.2px}
     .sub{margin:6px 0 0;color:var(--muted)}
     .grid{display:grid;gap:14px}
@@ -35,29 +32,17 @@
     .full{grid-column:1 / -1}
     @media (max-width:860px){.grid.two{grid-template-columns:1fr}}
 
-    .card{
-      background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01));
-      border:1px solid var(--line); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow)
-    }
+    .card{background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01));border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow)}
     .card h3{margin:0 0 10px;font-size:15px;letter-spacing:.2px;color:#cfe1ff}
 
     label{font-weight:600;font-size:13px;margin-bottom:6px;display:block;color:#cfe1ff}
-    input,textarea,select{
-      width:100%; background:var(--panel-2); color:var(--ink);
-      border:1px solid var(--accent-2); border-radius:12px; padding:10px 12px; outline:none
-    }
-    input[type="file"]{padding:8px}
+    input,textarea,select{width:100%;background:var(--panel-2);color:var(--ink);border:1px solid var(--accent-2);border-radius:12px;padding:10px 12px;outline:none}
     textarea{min-height:110px;resize:vertical}
     .hint{color:var(--muted);font-size:12px;margin-top:6px}
 
-    .drop{
-      display:flex;align-items:center;justify-content:center;gap:10px;
-      border:1.5px dashed #3550a3; border-radius:12px; padding:16px; background:var(--panel-2);
-      transition:.15s ease; cursor:pointer; text-align:center
-    }
+    .drop{display:flex;align-items:center;justify-content:center;gap:10px;border:1.5px dashed #3550a3;border-radius:12px;padding:16px;background:var(--panel-2);transition:.15s ease;cursor:pointer;text-align:center}
     .drop:hover{border-color:#5f88ff}
     .drop.drag{background:#101a45;border-color:#7aa3ff}
-    .drop .icon{width:20px;height:20px;opacity:.9}
     .fileMeta{margin-top:8px;color:#cbd8ff;font-size:12px}
 
     .switch{position:relative;width:48px;height:28px;flex:0 0 auto}
@@ -67,28 +52,21 @@
     .switch input:checked+.slider{background:var(--ok);box-shadow:inset 0 0 0 1px #0e8e6c}
     .switch input:checked+.slider:before{transform:translateX(20px)}
 
-    .toggleRow{display:flex;align-items:center;gap:12px}
-    .toggleTitle{font-weight:700}
-    .muted{color:var(--muted)}
-
     .actions{display:flex;gap:12px;justify-content:flex-end}
-    .btn{
-      background:var(--accent);color:#fff;border:0;border-radius:12px;padding:12px 16px;font-weight:700;cursor:pointer
-    }
+    .btn{background:var(--accent);color:#fff;border:0;border-radius:12px;padding:12px 16px;font-weight:700;cursor:pointer}
     .btn.secondary{background:#1a275c}
     .btn[disabled]{opacity:.7;cursor:not-allowed}
-    .spinner{
-      width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;display:inline-block;margin-right:8px;
-      animation:spin .8s linear infinite;vertical-align:-3px
-    }
+    .spinner{width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;display:inline-block;margin-right:8px;animation:spin .8s linear infinite;vertical-align:-3px}
     @keyframes spin{to{transform:rotate(360deg)}}
 
-    .result{margin-top:18px}
-    .chip{display:inline-block;background:var(--chip);border:1px solid #354684;padding:2px 8px;border-radius:999px;font-size:12px;margin-right:6px}
+    .chip{display:inline-block;background:#22306b;border:1px solid #354684;padding:2px 8px;border-radius:999px;font-size:12px;margin-right:6px}
     .badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:12px;margin-right:8px}
-    .pass{background:var(--ok);color:#052;}.caution{background:var(--warn);color:#320}.fail{background:var(--fail);color:#300}
+    .pass{background:#10b981;color:#052}.caution{background:#f59e0b;color:#320}.fail{background:#ef4444;color:#300}
+
     .pre{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-    .downloads{display:flex;gap:10px;margin-top:8px}
+    .row{display:flex;gap:18px;flex-wrap:wrap}
+    .kv{min-width:240px}
+    .ok{color:#a7f3d0}.issue{color:#fde68a}.missing{color:#fecaca}
   </style>
 </head>
 <body>
@@ -97,7 +75,7 @@
       <div class="brand">
         <div class="brandLogo" aria-hidden="true"></div>
         <div>
-          <h1><!-- APP_NAME -->Nexodify’s Label Compliance Preflight<!-- /APP_NAME --></h1>
+          <h1>Nexodify’s Label Compliance Preflight</h1>
           <div class="sub">Cited. Actionable. Production-ready.</div>
           <div class="sub" style="font-size:12px; opacity:.85">EU 1169/2011 preflight • optional Halal pre-audit • PDF + Fix Pack</div>
         </div>
@@ -105,21 +83,14 @@
     </header>
 
     <form id="f" class="grid" onsubmit="return false">
-      <!-- Row 1: Product + Company -->
       <div class="grid two">
         <div class="card">
           <h3>Product</h3>
           <label>Product name</label>
           <input name="product_name" placeholder="Pasta di Ceci" required/>
           <div class="grid two" style="margin-top:10px">
-            <div>
-              <label>Country of sale</label>
-              <input name="country_of_sale" placeholder="Italy" required/>
-            </div>
-            <div>
-              <label>Languages on label (ISO, comma)</label>
-              <input name="languages_provided" placeholder="it,en"/>
-            </div>
+            <div><label>Country of sale</label><input name="country_of_sale" placeholder="Italy" required/></div>
+            <div><label>Languages on label (ISO, comma)</label><input name="languages_provided" placeholder="it,en"/></div>
           </div>
           <div class="grid two" style="margin-top:10px">
             <div>
@@ -151,80 +122,60 @@
         </div>
       </div>
 
-      <!-- Row 2: Label file + TDS -->
       <div class="grid two">
         <div class="card" id="labelCard">
           <h3>Label file (JPG/PNG or PDF)</h3>
-          <div id="labelDrop" class="drop">
-            <svg class="icon" viewBox="0 0 24 24" fill="#9fb0d6"><path d="M19 13v7H5v-7H3v9h18v-9z"/><path d="M11 16h2V5.83l2.59 2.58L17 7l-5-5-5 5 1.41 1.41L11 5.83z"/></svg>
-            <div><strong>Drag & drop</strong> or click to choose</div>
-          </div>
+          <div id="labelDrop" class="drop">Drag &amp; drop or click to choose</div>
           <input id="labelInput" name="label_file" type="file" accept="image/*,.pdf" style="display:none" required/>
           <div class="fileMeta" id="labelMeta">No file chosen.</div>
           <div id="labelPreview" class="hint"></div>
-          <div class="hint">Tip: clear, front-on photos work best. PDFs are parsed for text.</div>
+          <div class="hint">Front-on, readable images work best. PDF is parsed for text only.</div>
         </div>
 
         <div class="card">
           <h3>Optional TDS (.pdf, .docx, .md, .txt)</h3>
-          <div id="tdsDrop" class="drop">
-            <svg class="icon" viewBox="0 0 24 24" fill="#9fb0d6"><path d="M19 13v7H5v-7H3v9h18v-9z"/><path d="M11 16h2V5.83l2.59 2.58L17 7l-5-5-5 5 1.41 1.41L11 5.83z"/></svg>
-            <div><strong>Drag & drop</strong> or click to attach</div>
-          </div>
+          <div id="tdsDrop" class="drop">Drag &amp; drop or click to attach</div>
           <input id="tdsInput" name="tds_file" type="file" accept=".pdf,.docx,.md,.txt" style="display:none"/>
           <div class="fileMeta" id="tdsMeta">No file chosen.</div>
         </div>
       </div>
 
-      <!-- Row 3: Extra rules (full width) -->
       <div class="card full">
         <h3>Extra rules / buyer requirements (optional)</h3>
         <textarea name="reference_docs_text" placeholder="Paste internal spec, buyer rules, claims substantiation..."></textarea>
         <div class="hint">If omitted, the engine uses EU baseline and our internal database.</div>
       </div>
 
-      <!-- Row 4: Options (full width) — Halal toggle lives here -->
       <div class="card full">
         <h3>Options</h3>
-        <div class="toggleRow">
-          <label class="switch" title="Enable Halal pre-audit">
-            <input type="checkbox" name="halal_audit"/>
-            <span class="slider" aria-hidden="true"></span>
-          </label>
-          <div>
-            <div class="toggleTitle">Halal pre-audit</div>
-            <div class="muted">Adds checks for forbidden ingredients, carriers/solvents, logo/issuer, segregation.</div>
-          </div>
-        </div>
+        <label class="switch" title="Enable Halal pre-audit">
+          <input type="checkbox" name="halal_audit"/><span class="slider" aria-hidden="true"></span>
+        </label>
+        <span class="sub" style="margin-left:12px">Halal pre-audit — checks for forbidden ingredients, carriers/solvents, logo/issuer, segregation.</span>
       </div>
 
-      <!-- Row 5: Actions -->
       <div class="actions full">
         <button class="btn secondary" type="button" id="resetBtn">Reset</button>
         <button class="btn" id="generateBtn" type="button">Generate Preflight</button>
       </div>
     </form>
 
-    <div id="out" class="result"></div>
+    <div id="out" class="grid" style="margin-top:18px"></div>
   </div>
 
   <script>
-    // ---------- helpers ----------
-    const $ = sel => document.querySelector(sel);
+    const $ = s => document.querySelector(s);
     const out = $('#out'), btn = $('#generateBtn'), resetBtn = $('#resetBtn');
     const labelDrop = $('#labelDrop'), labelInput = $('#labelInput'), labelMeta = $('#labelMeta'), labelPreview = $('#labelPreview');
     const tdsDrop = $('#tdsDrop'), tdsInput = $('#tdsInput'), tdsMeta = $('#tdsMeta');
-    const form = $('#f');
+    const form = document.getElementById('f');
 
     function setLoading(state){
       if(state){ btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Generating…'; }
       else { btn.disabled = false; btn.textContent = 'Generate Preflight'; }
     }
-
-    // drag & drop binding
     function bindDrop(dropEl, inputEl, metaEl, previewEl){
-      const click = () => inputEl.click();
-      dropEl.addEventListener('click', click);
+      dropEl.addEventListener('click', ()=>inputEl.click());
       ['dragenter','dragover'].forEach(ev=>dropEl.addEventListener(ev, e=>{e.preventDefault(); dropEl.classList.add('drag');}));
       ['dragleave','drop'].forEach(ev=>dropEl.addEventListener(ev, e=>{e.preventDefault(); dropEl.classList.remove('drag');}));
       dropEl.addEventListener('drop', e=>{
@@ -250,7 +201,6 @@
         el.innerHTML = '<span class="hint">Preview: PDF/Doc selected</span>';
       }
     }
-
     bindDrop(labelDrop, labelInput, labelMeta, labelPreview);
     bindDrop(tdsDrop, tdsInput, tdsMeta, null);
 
@@ -267,8 +217,30 @@
     async function fileToBase64(file){
       return new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(file); });
     }
-
     function esc(s){ return (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+    function renderChecks(title, checks){
+      let html = `<div class="card full"><h3>${title}</h3>`;
+      if(!checks || !checks.length){ html += `<div class="hint">No items.</div>`; }
+      for(const c of (checks||[])){
+        const icon = c.status === 'ok' ? '✅' : (c.status === 'missing' ? '⛔' : '⚠️');
+        html += `<div style="margin:10px 0">
+          <div><b>${icon} ${esc(c.title)}</b>
+            <span class="chip">${esc(c.status.toUpperCase())}</span>
+            <span class="chip">${esc(c.severity)}</span>
+          </div>`;
+        if(c.detail) html += `<div class="pre" style="color:#cbd8ff;margin-top:4px">• ${esc(c.detail)}</div>`;
+        if(c.status !== 'ok'){
+          if(c.fix) html += `<div class="pre" style="color:#a6f5c9;margin-top:4px">→ Fix: ${esc(c.fix)}</div>`;
+          if(Array.isArray(c.sources) && c.sources.length){
+            html += `<div class="pre" style="color:#bdc8ff;margin-top:2px">Sources: ${esc(c.sources.join('; '))}</div>`;
+          }
+        }
+        html += `</div>`;
+      }
+      html += `</div>`;
+      return html;
+    }
 
     async function handleGenerate(){
       setLoading(true);
@@ -279,7 +251,6 @@
       payload.languages_provided = (payload.languages_provided||'').split(',').map(s=>s.trim()).filter(Boolean);
       payload.halal_audit = !!fd.get('halal_audit');
 
-      // label
       const labelFile = labelInput.files[0];
       if(!labelFile){ alert('Please choose a label file.'); setLoading(false); return; }
       if(labelFile.type === 'application/pdf' || /\.pdf$/i.test(labelFile.name)){
@@ -288,7 +259,6 @@
         payload.label_image_data_url = await fileToDataUrlImage(labelFile);
       }
 
-      // tds
       const tds = tdsInput.files[0];
       if(tds){ payload.tds_file = { name: tds.name, base64: await fileToBase64(tds) }; }
 
@@ -298,79 +268,41 @@
         try{ data = JSON.parse(raw); } catch{ out.innerHTML = '<div class="card">Server error:<br><pre class="pre">'+esc(raw)+'</pre></div>'; setLoading(false); return; }
         if(data.error) throw new Error(data.error);
 
-        // ----- render -----
         const status = data.report?.overall_status || 'caution';
-        const score = data.score ?? '-';
-        const prod = data.report?.product || {};
-        let html = `<div class="card">
+        const score  = data.score ?? '-';
+        const prod   = data.report?.product || {};
+        let html = `<div class="card full">
           <div class="badge ${status}">${status.toUpperCase()}</div>
           <span class="chip">Score ${score}/100</span>
           <span class="chip">Halal: ${data.halal_audit?'ON':'OFF'}</span>
-          <div class="grid two" style="margin-top:10px">
-            <div><b>Name:</b> ${esc(prod.name)||'-'}</div>
-            <div><b>Country:</b> ${esc(prod.country_of_sale)||'-'}</div>
-            <div><b>Languages:</b> ${(prod.languages_provided||[]).join(', ')||'-'}</div>
-            <div><b>Summary:</b> ${esc(data.report?.summary||'-')}</div>
+          ${data.email_status ? `<span class="chip">Email: ${esc(data.email_status)}</span>` : ''}
+          <div class="row" style="margin-top:10px">
+            <div class="kv"><b>Name:</b> ${esc(prod.name)||'-'}</div>
+            <div class="kv"><b>Country:</b> ${esc(prod.country_of_sale)||'-'}</div>
+            <div class="kv"><b>Languages:</b> ${(prod.languages_provided||[]).join(', ')||'-'}</div>
+          </div>
+          ${data.report?.summary ? `<div class="pre" style="margin-top:8px">${esc(data.report.summary)}</div>` : ''}
+        </div>`;
+
+        html += renderChecks('EU 1169/2011 Checks', data.report?.checks);
+        if(Array.isArray(data.halal_checks) && data.halal_checks.length){
+          html += renderChecks('Halal Pre-Audit', data.halal_checks);
+        }
+
+        html += `<div class="card full" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <div class="sub">Downloads</div>
+          <div>
+            ${data.pdf_base64 ? `<a download="Preflight_Report.pdf" href="data:application/pdf;base64,${data.pdf_base64}"><button class="btn" type="button">Download PDF</button></a>`:''}
+            ${data.fixpack_text ? (()=>{ const blob=new Blob([data.fixpack_text],{type:'text/plain'}); const url=URL.createObjectURL(blob); return `<a download="Fix_Pack.txt" href="${url}"><button class="btn secondary" type="button">Download Fix Pack</button></a>`; })():''}
           </div>
         </div>`;
 
-        html += `<div class="card" style="margin-top:12px"><h3>EU 1169/2011 Checks</h3>`;
-        for(const c of (data.report?.checks||[])){
-          html += `<div style="margin:8px 0">
-            <span class="chip">${c.title}</span>
-            <span class="badge ${c.status}">${(c.status||'').toUpperCase()}</span>
-            <span class="chip">${c.severity}</span><br>`;
-          if(c.detail) html += `<div class="pre" style="color:#cbd8ff;margin-top:4px">• ${esc(c.detail)}</div>`;
-          if(c.status!=='ok'){
-            if(c.fix) html += `<div class="pre" style="color:#a6f5c9;margin-top:4px">→ Fix: ${esc(c.fix)}</div>`;
-            if(Array.isArray(c.sources)&&c.sources.length){
-              html += `<div class="pre" style="color:#bdc8ff;margin-top:2px">Sources: ${esc(c.sources.join('; '))}</div>`;
-            }
-          }
-          html += `</div>`;
-        }
-        html += `</div>`;
-
-        if(Array.isArray(data.halal_checks)&&data.halal_checks.length){
-          html += `<div class="card" style="margin-top:12px"><h3>Halal Pre-Audit</h3>`;
-          for(const c of data.halal_checks){
-            html += `<div style="margin:8px 0">
-              <span class="chip">${esc(c.title||'Halal check')}</span>
-              <span class="badge ${c.status}">${(c.status||'').toUpperCase()}</span>
-              <span class="chip">${c.severity}</span><br>`;
-            if(c.detail) html += `<div class="pre" style="color:#cbd8ff;margin-top:4px">• ${esc(c.detail)}</div>`;
-            if(c.status!=='ok'){
-              if(c.fix) html += `<div class="pre" style="color:#a6f5c9;margin-top:4px">→ Fix: ${esc(c.fix)}</div>`;
-              if(Array.isArray(c.sources)&&c.sources.length){
-                html += `<div class="pre" style="color:#bdc8ff;margin-top:2px">Sources: ${esc(c.sources.join('; '))}</div>`;
-              }
-            }
-            html += `</div>`;
-          }
-          html += `</div>`;
-        }
-
-        // downloads
-        html += `<div class="card" style="margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:10px">
-          <div class="muted">Downloads</div>
-          <div class="downloads">`;
-        if(data.pdf_base64){
-          const pdfHref = 'data:application/pdf;base64,' + data.pdf_base64;
-          html += `<a download="Preflight_Report.pdf" href="${pdfHref}"><button class="btn" type="button">Download PDF</button></a>`;
-        }
-        if(data.fixpack_text){
-          const blob = new Blob([data.fixpack_text], { type:'text/plain' });
-          const url = URL.createObjectURL(blob);
-          html += `<a download="Fix_Pack.txt" href="${url}"><button class="btn secondary" type="button">Download Fix Pack</button></a>`;
-        }
-        html += `</div></div>`;
-
         out.innerHTML = html;
+        out.scrollIntoView({behavior:'smooth', block:'start'});
       }catch(err){
         out.innerHTML = '<div class="card"><h3>Error</h3><div class="pre">'+esc(err?.message||err)+'</div></div>';
       }finally{
         setLoading(false);
-        out.scrollIntoView({behavior:'smooth',block:'start'});
       }
     }
 
@@ -378,11 +310,9 @@
       form.reset();
       labelInput.value = ""; tdsInput.value = "";
       labelMeta.textContent = 'No file chosen.'; tdsMeta.textContent = 'No file chosen.';
-      labelPreview.innerHTML = '';
-      out.innerHTML = '';
+      labelPreview.innerHTML = ''; out.innerHTML = '';
     }
 
-    // Bind events
     document.addEventListener('DOMContentLoaded', ()=>{
       bindDrop(labelDrop, labelInput, labelMeta, labelPreview);
       bindDrop(tdsDrop, tdsInput, tdsMeta, null);
