@@ -288,14 +288,17 @@
         if(Array.isArray(data.halal_checks) && data.halal_checks.length){
           html += renderChecks('Halal Pre-Audit', data.halal_checks);
         }
+html += `<div class="card full" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+  <div class="sub">Downloads</div>
+  <div>
+    ${data.pdf_base64
+      ? `<a download="Preflight_Report.pdf" href="data:application/pdf;base64,${data.pdf_base64}">
+           <button class="btn" type="button">Download Report (PDF)</button>
+         </a>`
+      : ``}
+  </div>
+</div>`;
 
-        html += `<div class="card full" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-          <div class="sub">Downloads</div>
-          <div>
-            ${data.pdf_base64 ? `<a download="Preflight_Report.pdf" href="data:application/pdf;base64,${data.pdf_base64}"><button class="btn" type="button">Download PDF</button></a>`:''}
-            ${data.fixpack_text ? (()=>{ const blob=new Blob([data.fixpack_text],{type:'text/plain'}); const url=URL.createObjectURL(blob); return `<a download="Fix_Pack.txt" href="${url}"><button class="btn secondary" type="button">Download Fix Pack</button></a>`; })():''}
-          </div>
-        </div>`;
 
         out.innerHTML = html;
         out.scrollIntoView({behavior:'smooth', block:'start'});
