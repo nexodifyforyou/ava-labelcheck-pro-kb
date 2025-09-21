@@ -251,7 +251,7 @@ async function askHalal({ fields, imageDataUrl, labelPdfText, tdsText, extraText
   return extractJson(r.choices?.[0]?.message?.content || "[]", true);
 }
 
-/* ====== PDF→PNG first-page rasterizer (Node, ESM-safe) ====== */
+/* ====== PDF→PNG first-page rasterizer (Node, ESM-safe, no worker) ====== */
 async function pdfFirstPageToDataUrl(buf) {
   try {
     // 1) Canvas (prefer @napi-rs/canvas; fallback to node-canvas)
@@ -265,22 +265,26 @@ async function pdfFirstPageToDataUrl(buf) {
     const pdfjsLib = await import("pdfjs-dist/build/pdf.mjs");
     console.log("labelcheck v12: pdfjs-dist version =", pdfjsLib.version);
 
-    // IMPORTANT: Do NOT set GlobalWorkerOptions.workerSrc in Node on v4.x.
-    // pdfjs will run parsing/rendering on the main thread in Node.
-    // pdfjsLib.GlobalWorkerOptions.workerSrc = undefined; // <-- leave it alone
+    // IMPORTANT:
+    //  - Do NOT set GlobalWorkerOptions.workerSrc in Node.
+    //  - Force worker OFF so it doesn’t try to import pdf.worker.mjs.
+    //  - Some builds also honor GlobalWorkerOptions.workerPort = null.
+    try { pdfjsLib.GlobalWorkerOptions.workerPort = null; } catch {}
 
-    // 3) Load PDF from memory
+    // 3) Load PDF from memory (worker disabled)
     const loadingTask = pdfjsLib.getDocument({
       data: new Uint8Array(buf),
-      useSystemFonts: true,
+      disableWorker: true,        // <— key line: avoid web worker in Node
       isEvalSupported: false,
-      stopAtErrors: true,
+      useSystemFonts: true,
+      stopAtErrors: true
     });
+
     const pdf = await loadingTask.promise;
     const page = await pdf.getPage(1);
 
     // 4) Render to a Node canvas
-    const scale = 2.0; // 2x is plenty for OCR
+    const scale = 2.0; // 2x is fine for OCR
     const viewport = page.getViewport({ scale });
     const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
     const ctx = canvas.getContext("2d");
@@ -294,9 +298,6 @@ async function pdfFirstPageToDataUrl(buf) {
     return null;
   }
 }
-
-
-
 /* ====== deterministic post-checks ====== */
 const COUNTRY_LANG = {
   italy: ["it"], germany: ["de"], france: ["fr"], spain: ["es"], portugal: ["pt"],
