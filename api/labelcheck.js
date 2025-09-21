@@ -162,7 +162,7 @@ async function withRetry(fn, { tries = 3, baseMs = 400 } = {}) {
   throw lastErr;
 }
 
-/* ====== Vision OCR (Phase 0) ====== */
+/* ====== Vision OCR (Phase 0) — with allergen emphasis ====== */
 async function visionTranscribeLabel(imageDataUrl) {
   if (!imageDataUrl) return "";
   const messages = [
@@ -171,18 +171,24 @@ async function visionTranscribeLabel(imageDataUrl) {
     { role: "user", content: [
         { type: "text", text:
 `Extract the on-pack text exactly as printed.
+
 Rules:
-- Return ONLY plain text (no JSON/markdown).
-- Preserve line breaks and reading order.
-- Keep original languages, punctuation, numbers, units (%, g, ml, ℮, kJ/kcal).
+- Return ONLY plain text (no JSON, no tables, no markdown except where noted).
+- Preserve line breaks and reading order (left→right, top→bottom).
+- Keep original languages, capitalization, punctuation, numbers, symbols, and units (%, g, ml, ℮, kJ/kcal).
 - If anything is unclear, write [illegible].
-- Include: sales name(s), full ingredients (as one list), allergen statements, net quantity, date lines (BEST BEFORE/USE BY), storage/use, FBO name/address/contacts, country of origin/provenance, alcohol % if any, nutrition per 100 g/ml, any certification text/logos (issuer), recycling text.
-- Do NOT infer; only what is visibly printed.` },
+- Include: sales name(s), full ingredients (as one continuous list), allergen statements, net quantity, date lines (BEST BEFORE/USE BY), storage/use, FBO name/address/contacts, country of origin/provenance, alcohol % if any, nutrition per 100 g/ml, any certification text/logos (issuer), recycling text.
+- Do NOT infer; only what is visibly printed.
+
+Allergen emphasis:
+- If allergens are visually emphasized on-pack (bold/ALL CAPS/contrast), wrap ONLY those emphasized allergen words with **double asterisks** (e.g., “… **MILK**, **ALMONDS** …”). Do not add asterisks elsewhere.
+
+Output: raw transcribed text only (plain text, with ** used solely to mark visible allergen emphasis).` },
         { type: "image_url", image_url: { url: imageDataUrl } }
       ] }
   ];
   const r = await withRetry(() => openai.chat.completions.create({
-    model: OPENAI_MODEL,
+    model: OPENAI_MODEL,   // e.g., "gpt-4o-mini"
     temperature: 0.0,
     messages
   }));
@@ -190,6 +196,7 @@ Rules:
   const fenced = out.match(/```[\s\S]*?```/);
   return fenced ? fenced[0].replace(/^```[a-z]*\n?|\n?```$/g, "") : out;
 }
+
 
 /* ====== Model calls ====== */
 async function askEU({ fields, imageDataUrl, labelPdfText, tdsText, extraText }) {
