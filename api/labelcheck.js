@@ -254,52 +254,52 @@ async function askHalal({ fields, imageDataUrl, labelPdfText, tdsText, extraText
 /* ====== PDF→PNG first-page rasterizer (Node, ESM-safe) ====== */
 async function pdfFirstPageToDataUrl(buf) {
   try {
-    // 1) Canvas (prefer @napi-rs/canvas; fallback to node-canvas; else bail)
-    let createCanvas;
-    try { ({ createCanvas } = await import("@napi-rs/canvas")); }
-    catch { try { ({ createCanvas } = await import("canvas")); } catch { createCanvas = null; } }
+    // 1) Canvas impl
+    let createCanvas, canvasImpl = "none";
+    try {
+      ({ createCanvas } = await import("@napi-rs/canvas"));
+      canvasImpl = "@napi-rs/canvas";
+    } catch {
+      try {
+        ({ createCanvas } = await import("canvas"));
+        canvasImpl = "canvas";
+      } catch {
+        createCanvas = null;
+      }
+    }
     if (!createCanvas) throw new Error("no canvas runtime");
+    console.log("labelcheck v12: canvas impl =", canvasImpl);
 
-    // 2) pdfjs-dist modern ESM entry (works in Node; no explicit worker URL needed)
+    // 2) pdfjs-dist (modern ESM)
     const pdfjsLib = await import("pdfjs-dist/build/pdf.mjs");
+    // Version string is available on some builds; guard in case undefined
+    const pdfjsVersion = (pdfjsLib.version || "unknown");
+    console.log("labelcheck v12: pdfjs-dist version =", pdfjsVersion);
 
-    // Node: avoid using a separate worker file
-    // (pdfjs will run in same thread for server-side usage)
+    // Run in same thread (no worker file on server)
     pdfjsLib.GlobalWorkerOptions.workerSrc = null;
 
-    // Disable eval in some locked-down environments
-    // (avoids CSP-like issues, not strictly required in Lambda)
-    if (typeof pdfjsLib.setPDFNetworkStreamFactory === "function") {
-      // noop: here for completeness if you later add custom fetch/streams
-    }
-
-    // 3) Load
+    // 3) Load PDF
     const loadingTask = pdfjsLib.getDocument({
       data: new Uint8Array(buf),
-      // These flags are helpful in serverless environments
       useSystemFonts: true,
-      isEvalSupported: false
+      isEvalSupported: false,
     });
     const pdf = await loadingTask.promise;
     const page = await pdf.getPage(1);
 
-    // 4) Render on a Node canvas
+    // 4) Render
     const scale = 2.2;
     const viewport = page.getViewport({ scale });
     const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
     const ctx = canvas.getContext("2d");
 
-    // pdfjs expects a minimal canvas-like interface
-    const renderContext = {
-      canvasContext: ctx,
-      viewport
-    };
-    await page.render(renderContext).promise;
+    await page.render({ canvasContext: ctx, viewport }).promise;
 
     const png = canvas.toBuffer("image/png");
     return "data:image/png;base64," + png.toString("base64");
   } catch (e) {
-    console.error("PDF rasterize fallback failed (esm):", e?.message || e);
+    console.error("PDF rasterize fallback failed (esm):", e?.stack || e?.message || e);
     return null;
   }
 }
