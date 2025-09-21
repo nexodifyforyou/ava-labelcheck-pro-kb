@@ -250,23 +250,42 @@ async function askHalal({ fields, imageDataUrl, labelPdfText, tdsText, extraText
   );
   return extractJson(r.choices?.[0]?.message?.content || "[]", true);
 }
-/* ====== PDF→PNG first-page rasterizer (Node, ESM-safe, pdfjs v3 legacy, no worker) ====== */
+/* ====== PDF→PNG first-page rasterizer (Node-safe: tries v3 then v4 legacy; no worker) ====== */
 async function pdfFirstPageToDataUrl(buf) {
   try {
-    // Prefer @napi-rs/canvas; fall back to node-canvas
+    // 1) Canvas (prefer @napi-rs/canvas; fallback to node-canvas)
     let createCanvas, canvasImpl = "none";
     try { ({ createCanvas } = await import("@napi-rs/canvas")); canvasImpl = "@napi-rs/canvas"; }
     catch { try { ({ createCanvas } = await import("canvas")); canvasImpl = "canvas"; } catch { createCanvas = null; } }
     console.log("labelcheck v12: canvas impl =", canvasImpl);
     if (!createCanvas) throw new Error("no canvas runtime");
 
-    // Use pdfjs-dist v3 legacy ESM bundle (works in Node)
-    const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
-    console.log("labelcheck v12: pdfjs-dist version =", pdfjsLib.version);
+    // 2) Try pdfjs-dist v3 legacy first, then v4 legacy
+    let pdfjsLib = null;
+    let pdfjsFlavor = "";
+    try {
+      pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs"); // v3 preferred in Node
+      pdfjsFlavor = "v3-legacy";
+    } catch {
+      try {
+        pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs"); // v4 also has legacy
+        pdfjsFlavor = "v4-legacy";
+      } catch (e) {
+        // Some bundlers flatten paths; final fallback: non-legacy build (may warn)
+        try {
+          pdfjsLib = await import("pdfjs-dist/build/pdf.mjs");
+          pdfjsFlavor = "v4-build";
+        } catch (e2) {
+          console.error("pdfjs import failed:", e2?.message || e2);
+          throw new Error("pdfjs-dist not installed");
+        }
+      }
+    }
+    console.log("labelcheck v12: pdfjs flavor =", pdfjsFlavor, "version =", pdfjsLib?.version || "unknown");
 
-    // Run without a worker in Node
+    // 3) Force worker OFF in Node
     try { pdfjsLib.GlobalWorkerOptions.workerPort = null; } catch {}
-    // Do NOT set workerSrc; just fully disable worker here:
+    // Do NOT set workerSrc. Disable worker in getDocument.
     const loadingTask = pdfjsLib.getDocument({
       data: new Uint8Array(buf),
       disableWorker: true,
@@ -278,21 +297,21 @@ async function pdfFirstPageToDataUrl(buf) {
     const pdf = await loadingTask.promise;
     const page = await pdf.getPage(1);
 
-    const scale = 2.0; // good enough for OCR
+    // 4) Render to Node canvas
+    const scale = 2.0;
     const viewport = page.getViewport({ scale });
     const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
     const ctx = canvas.getContext("2d");
-
     await page.render({ canvasContext: ctx, viewport }).promise;
 
     const png = canvas.toBuffer("image/png");
+    console.log("Rasterized PDF page to PNG for Vision");
     return "data:image/png;base64," + png.toString("base64");
   } catch (e) {
-    console.error("PDF rasterize fallback failed (legacy v3):", e?.message || e);
+    console.error("PDF rasterize fallback failed (robust):", e?.message || e);
     return null;
   }
 }
-
 
 
 /* ====== deterministic post-checks ====== */
