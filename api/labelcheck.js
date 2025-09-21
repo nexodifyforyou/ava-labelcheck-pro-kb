@@ -252,16 +252,15 @@ async function askHalal({ fields, imageDataUrl, labelPdfText, tdsText, extraText
 /* ====== PDF→PNG rasterization fallback (optional deps, safe to skip) ====== */
 async function pdfFirstPageToDataUrl(buf) {
   try {
-    // Prefer @napi-rs/canvas (prebuilt for Vercel). Fallback to node-canvas if present.
+    // Prefer @napi-rs/canvas; fallback to node-canvas; else skip.
     let createCanvas;
     try { ({ createCanvas } = await import("@napi-rs/canvas")); }
     catch { try { ({ createCanvas } = await import("canvas")); } catch { createCanvas = null; } }
     if (!createCanvas) throw new Error("no-canvas");
 
     const pdfjs = await import("pdfjs-dist/legacy/build/pdf.js");
-    // worker is bundled; set to same file to suppress warnings
     const worker = await import("pdfjs-dist/legacy/build/pdf.worker.js");
-    pdfjs.GlobalWorkerOptions.workerSrc = worker && worker.default ? worker.default : undefined;
+    pdfjs.GlobalWorkerOptions.workerSrc = worker?.default ?? undefined;
 
     const loadingTask = pdfjs.getDocument({ data: new Uint8Array(buf) });
     const pdf = await loadingTask.promise;
@@ -275,7 +274,6 @@ async function pdfFirstPageToDataUrl(buf) {
     const png = canvas.toBuffer("image/png");
     return "data:image/png;base64," + png.toString("base64");
   } catch (e) {
-    // Silent fail → caller will continue without image
     console.error("PDF rasterize fallback failed:", e?.message || e);
     return null;
   }
@@ -283,40 +281,17 @@ async function pdfFirstPageToDataUrl(buf) {
 
 /* ====== deterministic helpers ====== */
 const COUNTRY_LANG = {
-  italy: ["it"],
-  germany: ["de"],
-  france: ["fr"],
-  spain: ["es"],
-  portugal: ["pt"],
-  netherlands: ["nl"],
-  belgium: ["nl","fr","de"],
-  austria: ["de"],
-  denmark: ["da"],
-  sweden: ["sv"],
-  finland: ["fi"],
-  poland: ["pl"],
-  romania: ["ro"],
-  greece: ["el"],
-  czechia: ["cs"],
-  slovakia: ["sk"],
-  slovenia: ["sl"],
-  hungary: ["hu"],
-  ireland: ["en"],
-  "united kingdom": ["en"],
-  switzerland: ["de","fr","it"],
-  luxembourg: ["fr","de","lb"]
+  italy: ["it"], germany: ["de"], france: ["fr"], spain: ["es"], portugal: ["pt"],
+  netherlands: ["nl"], belgium: ["nl","fr","de"], austria: ["de"], denmark: ["da"],
+  sweden: ["sv"], finland: ["fi"], poland: ["pl"], romania: ["ro"], greece: ["el"],
+  czechia: ["cs"], slovakia: ["sk"], slovenia: ["sl"], hungary: ["hu"],
+  ireland: ["en"], "united kingdom": ["en"], switzerland: ["de","fr","it"], luxembourg: ["fr","de","lb"]
 };
 
 function keywordFromName(name) {
   if (!name) return "";
-  const stop = new Set([
-    "di","de","al","alla","allo",
-    "candite","canditi","sgocciolate","sgocciolato",
-    "sciroppo","glucosio","regolatore","acido","concentrato","sale","acqua"
-  ]);
-  const words = String(name).toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]/gu," ")
-    .split(/\s+/).filter(Boolean);
+  const stop = new Set(["di","de","al","alla","allo","candite","canditi","sgocciolate","sgocciolato","sciroppo","glucosio","regolatore","acido","concentrato","sale","acqua"]);
+  const words = String(name).toLowerCase().replace(/[^\p{L}\p{N}\s]/gu," ").split(/\s+/).filter(Boolean);
   for (const w of words) if (!stop.has(w) && w.length > 2) return w;
   return words[0] || "";
 }
@@ -367,11 +342,10 @@ function dedupeAndCanonicalize(checks, key, canonicalTitle, preferredCheck) {
 }
 
 /* ====== enforcement (hard guards) ====== */
-function find(regex, text){ return regex.test(text); }
+function find(rx, text){ return rx.test(text); }
 
 function enforce(report, fields, joinedText, rawTextBlocks) {
   report.checks = Array.isArray(report.checks) ? report.checks : [];
-
   const lower = joinedText.toLowerCase();
 
   // Language compliance
@@ -536,7 +510,7 @@ function enforce(report, fields, joinedText, rawTextBlocks) {
   };
   dedupeAndCanonicalize(report.checks, "address", "FBO name/EU address", fboPreferred);
 
-  // Nutrition declaration presence
+  // Nutrition declaration
   const NUT_RX = /(valori nutrizionali|nutrition facts|nutrition declaration|per 100\s?(g|ml)|kcal|kj)/i;
   const hasNut = find(NUT_RX, lower);
   const nutPreferred = hasNut ? {
@@ -550,7 +524,7 @@ function enforce(report, fields, joinedText, rawTextBlocks) {
   };
   dedupeAndCanonicalize(report.checks, "nutrition", hasNut ? "Nutrition declaration order per 100g/100ml" : "Nutrition declaration", nutPreferred);
 
-  // Claims
+  // Claims (if the text contains typical claim words)
   const CLAIM_RX = /(source of|fonte di|ricco di|high in|no added|senza zuccheri aggiunti|sugar free|alto contenuto)/i;
   const hasClaim = find(CLAIM_RX, lower);
   const claimPreferred = hasClaim ? {
@@ -630,7 +604,7 @@ async function buildPdfBase64(report, halalChecks, fields, { includeHalalPage = 
       doc.moveDown(0.5);
     }
 
-    // Halal
+    // Halal (issues/missing only)
     const halalHasContent = Array.isArray(halalChecks) && halalChecks.length > 0;
     const halalAllOk = halalHasContent && halalChecks.every(h => h.status === "ok");
     if (includeHalalPage && halalHasContent && !halalAllOk) {
@@ -729,7 +703,7 @@ export default async function handler(req, res) {
       shipping_scope, product_category
     };
 
-    // Parse TDS (guarded)
+    /* ========= TDS parse (guarded) ========= */
     stage = "parse_tds";
     let tdsText = "";
     if (tds_file?.base64) {
@@ -751,37 +725,63 @@ export default async function handler(req, res) {
       }
     }
 
-    // Parse Label PDF to text (guarded) + rasterize fallback to image
+    /* ========= Label PDF parse (guarded) + rasterize fallback ========= */
     stage = "parse_label_pdf";
     let labelPdfText = "";
     let imageDataUrl = label_image_data_url || null;
 
     if (label_pdf_file?.base64) {
       try {
-        const base = b64FromDataUrl(label_pdf_file.base64);
-        if (base && base.length > 0) {
-          const buf = Buffer.from(base, "base64");
-          try {
-            const pdfParse = (await import("pdf-parse")).default;
-            const parsed = await pdfParse(buf);
-            labelPdfText = parsed?.text || "";
-          } catch (e) {
-            console.error("Label PDF parse failed:", e?.message || e);
-            labelPdfText = "";
+        // Accept both pure base64 and data URLs
+        let base = label_pdf_file.base64;
+        if (typeof base !== "string") {
+          console.error("Label PDF base64 not a string, skipping parse.");
+          base = "";
+        }
+        const commaIdx = base.indexOf(",");
+        const b64 = commaIdx >= 0 ? base.slice(commaIdx + 1) : base;
+
+        // Only proceed if base64 string looks plausible
+        const looksB64 = /^[A-Za-z0-9+/=\s]+$/.test(b64 || "");
+        if (looksB64 && b64.length > 200) {
+          const buf = Buffer.from(b64, "base64");
+
+          if (Buffer.isBuffer(buf) && buf.length > 0) {
+            // Try text extraction first
+            try {
+              const pdfParse = (await import("pdf-parse")).default;
+              const parsed = await pdfParse(buf);
+              labelPdfText = typeof parsed?.text === "string" ? parsed.text : "";
+            } catch (e) {
+              console.error("Label PDF parse failed (pdf-parse):", e?.message || e);
+              labelPdfText = "";
+            }
+
+            // If text layer is sparse and no separate image was provided, rasterize page 1 to PNG for Vision
+            const sparse = !labelPdfText || labelPdfText.replace(/\s+/g, "").length < 200;
+            if (sparse && !imageDataUrl) {
+              try {
+                const pngDataUrl = await pdfFirstPageToDataUrl(buf);
+                if (pngDataUrl) {
+                  console.log("Rasterized PDF page to PNG for Vision");
+                  imageDataUrl = pngDataUrl;
+                }
+              } catch (e) {
+                console.error("PDF rasterize fallback failed:", e?.message || e);
+              }
+            }
+          } else {
+            console.error("Label PDF buffer invalid/empty; skipping parse.");
           }
-          // If PDF text is sparse and no separate image provided, rasterize first page to PNG for vision
-          const sparse = !labelPdfText || labelPdfText.replace(/\s+/g, "").length < 200;
-          if (sparse && !imageDataUrl) {
-            const pngDataUrl = await pdfFirstPageToDataUrl(buf);
-            if (pngDataUrl) imageDataUrl = pngDataUrl;
-          }
+        } else {
+          console.error("Label PDF base64 string does not look valid; skipping parse.");
         }
       } catch (e) {
         console.error("Label PDF base64 decode failed:", e?.message || e);
       }
     }
 
-    // Determine if inputs are essentially blank
+    /* ========= Determine if inputs are blank ========= */
     stage = "check_blank";
     const isBlank =
       !(imageDataUrl && String(imageDataUrl).trim()) &&
@@ -790,7 +790,7 @@ export default async function handler(req, res) {
       !(reference_docs_text && String(reference_docs_text).trim()) &&
       !(product_name && String(product_name).trim());
 
-    // 1) Ask model
+    /* ========= 1) Ask model (EU) ========= */
     stage = "ask_eu";
     const raw = await askEU({
       fields,
@@ -800,7 +800,7 @@ export default async function handler(req, res) {
       extraText: reference_docs_text || ""
     });
 
-    // 2) Normalize
+    /* ========= 2) Normalize ========= */
     stage = "normalize";
     const report = {
       version: "1.0",
@@ -822,13 +822,13 @@ export default async function handler(req, res) {
       })) : []
     };
 
-    // 3) Hard enforcement & de-dupe
+    /* ========= 3) Hard enforcement & de-dupe ========= */
     stage = "enforce";
     const rawTextBlocks = [labelPdfText || "", tdsText || "", reference_docs_text || ""].filter(Boolean);
     const joined = rawTextBlocks.join("\n").toLowerCase();
     enforce(report, fields, joined, rawTextBlocks);
 
-    // Blank input → all missing (mandatory true for core)
+    // If truly blank → overwrite with all missing core checks
     if (isBlank) {
       const coreTitles = [
         "Sales name",
@@ -855,13 +855,13 @@ export default async function handler(req, res) {
       report.summary = "Inputs were blank/scant. All core particulars are missing.";
     }
 
-    // 4) Score + overall
+    /* ========= 4) Score + overall ========= */
     stage = "score";
     const { score, overall } = recomputeScore(report);
     report.score = score;
     report.overall_status = overall;
 
-    // 5) Optional Halal
+    /* ========= 5) Optional Halal ========= */
     stage = "halal";
     let halalChecks = [];
     if (halal_audit) {
@@ -882,7 +882,7 @@ export default async function handler(req, res) {
       }));
     }
 
-    // 6) PDF (await 'end'); fallback if empty
+    /* ========= 6) PDF (await 'end'); fallback if empty ========= */
     stage = "pdf";
     let pdf_base64 = "";
     let pdf_error = "";
@@ -900,7 +900,7 @@ export default async function handler(req, res) {
     }
     const pdf_len = (pdf_base64 || "").length;
 
-    // 7) Email
+    /* ========= 7) Email via Resend ========= */
     stage = "email";
     let email_status = "skipped: missing RESEND_API_KEY or company_email";
     if (process.env.RESEND_API_KEY && fields.company_email) {
@@ -948,3 +948,4 @@ export default async function handler(req, res) {
     return sendJson(res, 500, { error: err?.message || String(err), stage });
   }
 }
+
