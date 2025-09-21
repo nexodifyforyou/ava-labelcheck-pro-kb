@@ -11,6 +11,11 @@
     "openai": "^4.58.1",
     "pdfkit": "^0.15.0",
     "pdf-parse": "^1.1.1",
-    "resend": "^4.0.0"
+    "resend": "^4.0.0",
+    "pdfjs-dist": "^4.8.69",
+    "@napi-rs/canvas": "^0.1.58"
+  },
+  "optionalDependencies": {
+    "canvas": "^2.11.2"
   }
 }
