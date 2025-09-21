@@ -1,0 +1,199 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>LabelCheck API Tester</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:#0b1020; color:#e7ecff; padding:20px; }
+    h1 { margin:0 0 12px; font-weight:700; }
+    .card { background:#121735; border:1px solid #273057; border-radius:14px; padding:16px; margin:12px 0; }
+    label { display:block; margin:8px 0 4px; font-size:14px; }
+    input, select, textarea { width:100%; background:#0f1530; color:#e7ecff; border:1px solid #2b3566; border-radius:10px; padding:10px; }
+    input[type="checkbox"]{ width:auto; }
+    .row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    button { background:#5163ff; border:none; border-radius:10px; padding:12px 16px; color:#fff; font-weight:600; cursor:pointer; }
+    button[disabled]{ opacity:.5; cursor:not-allowed; }
+    pre { white-space:pre-wrap; word-break:break-word; background:#0a0f26; border:1px solid #263159; border-radius:12px; padding:12px; max-height:420px; overflow:auto; }
+    .ok { color:#3ddc97; } .err { color:#ff8a8a; }
+    a.dl { display:inline-block; margin-top:8px; }
+  </style>
+</head>
+<body>
+  <h1>LabelCheck API Tester</h1>
+
+  <div class="card">
+    <div class="row">
+      <div>
+        <label>Product name</label>
+        <input id="product_name" placeholder="e.g., Sugo Bolognese e Tartufi" />
+      </div>
+      <div>
+        <label>Company</label>
+        <input id="company_name" placeholder="Sassone Tartufi" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Company email (to receive PDF)</label>
+        <input id="company_email" placeholder="you@example.com" />
+      </div>
+      <div>
+        <label>Country of sale</label>
+        <input id="country_of_sale" placeholder="Italy" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Languages on label (ISO, comma)</label>
+        <input id="languages" placeholder="it,en" />
+      </div>
+      <div>
+        <label>Category (optional)</label>
+        <input id="product_category" placeholder="Confectionery" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Label PDF (preferred)</label>
+        <input id="label_pdf" type="file" accept=".pdf" />
+      </div>
+      <div>
+        <label>OR Label image (PNG/JPG)</label>
+        <input id="label_img" type="file" accept="image/*" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>TDS file (pdf, docx, md, txt)</label>
+        <input id="tds_file" type="file" />
+      </div>
+      <div>
+        <label>Extra rules / buyer requirements (optional)</label>
+        <textarea id="extra" rows="3" placeholder="Paste buyer rules, claims substantiation, etc."></textarea>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label><input id="halal" type="checkbox" /> Enable Halal pre-audit</label>
+      </div>
+      <div>
+        <label><input id="return_pdf" type="checkbox" checked /> Return PDF in API response</label>
+      </div>
+    </div>
+
+    <div style="margin-top:10px; display:flex; gap:10px;">
+      <button id="btnSend">Send to /api/labelcheck</button>
+      <button id="btnPing" type="button">Quick ping (see version)</button>
+      <div id="status"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Response</h3>
+    <div id="meta"></div>
+    <pre id="out"></pre>
+    <a id="pdfLink" class="dl" target="_blank"></a>
+  </div>
+
+<script>
+const toDataUrl = (file) => new Promise((res, rej) => {
+  if (!file) return res(null);
+  const r = new FileReader();
+  r.onload = () => res(r.result);  // data:...;base64,....
+  r.onerror = rej;
+  r.readAsDataURL(file);
+});
+const langList = (s) => (s||"").split(/[,\s]+/).map(x=>x.trim()).filter(Boolean);
+
+async function callApi(body) {
+  const resp = await fetch('/api/labelcheck', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const json = await resp.json();
+  return json;
+}
+
+function setStatus(msg, ok) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = ok ? 'ok' : 'err';
+}
+
+document.getElementById('btnPing').onclick = async () => {
+  setStatus('Pinging…', true);
+  try {
+    const j = await callApi({ product_name: "Ping", return_pdf: false });
+    document.getElementById('meta').textContent = '';
+    document.getElementById('out').textContent = JSON.stringify(j, null, 2);
+    setStatus('OK', true);
+  } catch (e) {
+    setStatus('Ping failed: ' + (e.message||e), false);
+  }
+};
+
+document.getElementById('btnSend').onclick = async () => {
+  const btn = document.getElementById('btnSend');
+  btn.disabled = true; setStatus('Reading files…', true);
+
+  try {
+    const body = {
+      product_name: document.getElementById('product_name').value,
+      company_name: document.getElementById('company_name').value,
+      company_email: document.getElementById('company_email').value,
+      country_of_sale: document.getElementById('country_of_sale').value,
+      languages_provided: langList(document.getElementById('languages').value),
+      product_category: document.getElementById('product_category').value,
+      reference_docs_text: document.getElementById('extra').value,
+      halal_audit: document.getElementById('halal').checked,
+      return_pdf: document.getElementById('return_pdf').checked
+    };
+
+    // files → data URLs
+    const pdfFile = document.getElementById('label_pdf').files[0];
+    const imgFile = document.getElementById('label_img').files[0];
+    const tdsFile = document.getElementById('tds_file').files[0];
+
+    if (pdfFile) body.label_pdf_file = { name: pdfFile.name, base64: await toDataUrl(pdfFile) };
+    if (imgFile) body.label_image_data_url = await toDataUrl(imgFile);
+    if (tdsFile) body.tds_file = { name: tdsFile.name, base64: await toDataUrl(tdsFile) };
+
+    setStatus('Sending…', true);
+    const j = await callApi(body);
+
+    // show version & quick summary
+    const meta = [];
+    if (j.version) meta.push('version: ' + j.version);
+    if (j.model) meta.push('model: ' + j.model);
+    if (j.score !== undefined) meta.push('score: ' + j.score + '/100');
+    if (j.report?.overall_status) meta.push('overall: ' + j.report.overall_status.toUpperCase());
+    document.getElementById('meta').textContent = meta.join('  •  ');
+
+    document.getElementById('out').textContent = JSON.stringify(j, null, 2);
+
+    // make a PDF download link if present
+    const a = document.getElementById('pdfLink');
+    if (j.pdf_base64) {
+      a.href = 'data:application/pdf;base64,' + j.pdf_base64;
+      a.textContent = 'Download PDF report';
+    } else {
+      a.removeAttribute('href'); a.textContent = '';
+    }
+
+    setStatus('Done', true);
+  } catch (e) {
+    setStatus('Error: ' + (e.message||e), false);
+  } finally {
+    btn.disabled = false;
+  }
+};
+</script>
+</body>
+</html>
