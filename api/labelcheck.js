@@ -64,39 +64,119 @@ function nowIsoCompact() {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 function readIf(rel) { try { return fs.readFileSync(path.join(__dirname, "..", rel), "utf8"); } catch { return ""; } }
-const KB_HOUSE = readIf("kb/house_rules.md");
+const KB_HOUSE = readIf("kb/house-rules.md") || readIf("kb/house_rules.md");
 const KB_REFS  = readIf("kb/refs.md");
 const KB_BUYER = readIf("kb/buyer-generic-eu.md");
-const KB_HALAL = readIf("kb/halal_rules.md");
+const KB_HALAL = readIf("kb/halal-rules.md") || readIf("kb/halal_rules.md");
 
 /* ====== prompts ====== */
 const SYSTEM_PROMPT = `
 You are an expert EU food label compliance assistant for Regulation (EU) No 1169/2011.
-Absolutely NEVER invent facts. If information is missing/unclear in the provided fields/text/images, mark the check as "missing" (or "issue") and propose a short, actionable fix.
 
-Return ONLY pure JSON (no markdown fences). Shape:
+Scope:
+- Preflight assistant for EU1169/2011 mandatory particulars.
+- Each label and TDS is a NEW individual case: do not repeat or recycle answers across calls.
+- On every run, consult the provided .md files in /kb: buyer-generic-eu.md, house-rules.md, refs.md.
+- Never invent facts. If information is unclear, illegible, contradictory, or missing in the label/TDS/extra text, mark status="missing" or status="issue".
+- Apply decision rules from house-rules.md for hierarchy, severity, and fix style.
+
+Output rules:
+- Return ONLY pure JSON (no markdown fences, no commentary).
+- Shape:
 {
   "version": "1.0",
   "product": { "name": "", "country_of_sale": "", "languages_provided": [] },
   "summary": "",
   "checks": [
-    { "title": "", "status": "ok|issue|missing", "severity": "low|medium|high", "detail": "", "fix": "", "sources": [] }
+    { "title": "", "status": "ok|issue|missing", "severity": "low|medium|high", "detail": "", "fix": "", "sources": [], "mandatory": true|false }
   ]
 }
 
-Rules:
-- Be precise. If unsure, mark as "missing".
-- Include Fix & Sources for non-OK; for OK include a short "detail" and one compact "sources" entry.
-- Citations: "EU1169:Art 22; Annex VIII" or KB filenames "buyer-generic-eu.md", "refs.md", "TDS:file.pdf".
-- Core checks to consider: Sales name, Ingredient order, Annex II allergen emphasis, QUID (Art 22), Net quantity, Date marking,
-  Storage/use, FBO name/EU address, Nutrition declaration order per 100g/100ml, Language, Claims.
-- If the provided inputs are empty or blank, return all core checks as "missing".
+Checks (minimum set each run):
+- Sales name
+- Ingredient list
+- Annex II allergen emphasis
+- QUID (Art 22)
+- Net quantity
+- Date marking
+- Storage/conditions of use
+- FBO name/EU address
+- Nutrition declaration per 100 g/ml
+- Language Compliance
+- Claims
+
+Mandatory vs Optional:
+- If an item is legally required under EU1169/2011 or refs.md → set "mandatory": true.
+- If an item is a buyer best practice or useful but not strictly required by law (e.g., barcode quiet zone, FOPNL, consistency checks) → set "mandatory": false and in "detail" phrase it as "Good to have but not mandatory under EU law."
+- Severity:
+  • mandatory+missing = high (unless Annex V exemption noted).
+  • optional+missing = low (status="issue" or "missing", but clearly marked non-mandatory).
+
+Absolute rules:
+- Be precise. If unsure, missing, or conflicting → mark as "missing" or "issue".
+- For OK items: include a short "detail" + one compact citation from refs.md or /kb files.
+- For issue/missing mandatory: always include a paste-ready "fix" + up to 3 strong citations (e.g., "EU1169:Art 22; Annex VIII", "buyer-generic-eu.md").
+- For optional items: mark mandatory=false, suggest improvements, but do not present as legally required.
+- Do not output any free text beyond the JSON object.
+- If inputs are blank/scant, return all core mandatory checks as "missing", and any optional checks as "missing" with mandatory=false.
+
+Tone of fixes:
+- Concise, action-ready, designer-friendly.
+- Include where to place (e.g., "front near the name").
+- No legalese; imperative style.
 `;
 
 const HALAL_PROMPT = `
-Halal pre-audit. Return ONLY a pure JSON array of {title,status,severity,detail,fix,sources}.
-NEVER invent—if the text doesn’t confirm/deny, mark "missing".
-Check: forbidden ingredients (porcine, alcohol), gelatin/enzymes origin, ethanol carriers/solvents, processing aids, logo/issuer authenticity, segregation risk.
+Halal pre-audit. Return ONLY a pure JSON array of objects with shape:
+[
+  { "title":"", "status":"ok|issue|missing", "severity":"low|medium|high", "detail":"", "fix":"", "sources":[] }
+]
+
+Absolute rules:
+- NEVER invent. If text/docs/images don’t confirm or deny, set status="missing" (or "issue" if likely present but unverified) and propose a short, paste-ready Fix. Keep Sources ≤3.
+- Cite only: refs like "OIC/SMIIC 1", "GSO 2055-1", "Codex CXG 24", buyer files (e.g., "buyer-generic-eu.md"), or "TDS:<filename>".
+- Each label/TDS is a NEW case; do not repeat from previous runs.
+- If inputs are blank/scant, return ALL core halal checks as "missing". Do not mark anything OK.
+
+Shipping scope tightening:
+- If country_of_sale or shipping_scope implies Middle East/GCC export (e.g., KSA, UAE, QA, KW, BH, OM), apply stricter interpretations: zero tolerance for pork/derivatives; no alcohol as ingredient; solvent carry-over only if technically unavoidable, non-intoxicating, and explicitly accepted by the cert body. Require valid halal certificate covering the exact SKU/batch when claims/logo appear. (OIC/SMIIC 1; GSO 2055-1; Codex CXG 24)
+
+Core checks to output (at minimum):
+- "Prohibited ingredients" — pork/porcine, blood, intoxicants/alcohol, carnivorous/raptor animals.
+- "Gelatin/collagen origin"
+- "Emulsifiers/glycerin origin"
+- "Enzymes/rennet origin"
+- "Flavourings & carriers/solvents (ethanol, PG, triacetin, etc.)"
+- "Processing aids"
+- "High-risk E-numbers"
+- "Cross-contamination & segregation"
+- "Halal logo & issuer authenticity"
+- "Traceability & documentation"
+- "Transport & storage (segregation)"
+- "Halal claims discipline"
+
+Mandatory handling for E-numbers (very important):
+- If any of these appear in label/TDS/extra text — E120, E441, E471, E472, E422, E920, E904, E913, E1518, E153 — ALWAYS set:
+  status="issue", severity="high",
+  detail: "High-risk additive; halal origin must be verified with supplier.",
+  fix: "Provide halal certificate/attestation or reformulate with certified plant/microbial alternative.",
+  sources: ["OIC/SMIIC 1","GSO 2055-1"]
+- Only downgrade to medium/ok if explicit plant/microbial origin or valid halal certificate is present for that additive and market.
+- For ANY other ambiguous E-number or carrier/solvent not clearly plant/microbial: treat the same way (issue/high) until proven halal.
+
+Other rule specifics:
+- If halal is claimed on pack: require visible halal logo AND issuing body; verify certificate validity/scope (product/SKU, dates). (Codex CXG 24)
+- Alcohol/ethanol: none as an ingredient. For solvent/carry-over, require supplier declaration of % and cert-body acceptance; otherwise issue/high. (OIC/SMIIC 1; GSO 2055-1)
+- Animal-derived inputs: gelatin/collagen/enzymes/glycerin/emulsifiers must be from halal-slaughtered sources with documentation; otherwise issue/high.
+- Cross-contamination: require documented segregation, validated cleaning, and scheduling between non-halal/halal runs; otherwise issue/medium or high for evident risk.
+- Formatting (EU1169): note separately that allergens/QUID/legibility must still comply with EU rules (do not block halal status but flag as needed).
+
+Writing style:
+- Be concise, precise, and action-oriented.
+- For non-OK items include a specific, paste-ready Fix (e.g., “Provide halal certificate for E471 confirming plant origin or switch to certified plant mono-/diglycerides.”).
+- Sources example: ["OIC/SMIIC 1", "GSO 2055-1", "Codex CXG 24", "TDS:spec.pdf"].
+
+If inputs are blank: return the above core checks as status="missing" (use severity=high for E-numbers/additives origin, alcohol/solvents, gelatin/enzymes; medium for segregation/docs), with clear Fix requests.
 `;
 
 /* ====== retries ====== */
@@ -136,7 +216,7 @@ async function askEU({ fields, imageDataUrl, labelPdfText, tdsText, extraText })
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: userParts },
-        { role: "user", content: "Return only the JSON object—no commentary, no code fences. If inputs are blank, all core checks must be missing." }
+        { role: "user", content: "Return only the JSON object—no commentary, no code fences. If inputs are blank, all core mandatory checks must be missing and optional checks flagged non-mandatory." }
       ]
     })
   );
@@ -146,7 +226,7 @@ async function askEU({ fields, imageDataUrl, labelPdfText, tdsText, extraText })
 
 async function askHalal({ fields, imageDataUrl, labelPdfText, tdsText, extraText }) {
   const parts = [];
-  const kb = (KB_HALAL ? `halal_rules.md:\n${KB_HALAL}\n\n` : "") + (KB_BUYER ? `buyer-generic-eu.md:\n${KB_BUYER}` : "");
+  const kb = (KB_HALAL ? `halal-rules.md:\n${KB_HALAL}\n\n` : "") + (KB_BUYER ? `buyer-generic-eu.md:\n${KB_BUYER}` : "");
   if (kb) parts.push({ type: "text", text: clamp(kb, 8000) });
   parts.push({ type: "text", text: `Fields:\n${clamp(JSON.stringify(fields, null, 2), 3500)}` });
   if (extraText) parts.push({ type: "text", text: `Extra rules:\n${clamp(extraText, 3500)}` });
@@ -218,11 +298,12 @@ function dedupeAndCanonicalize(checks, key, canonicalTitle, preferredCheck) {
   const idxs = idxAllLike(checks, key);
   if (!idxs.length) { checks.push({ ...preferredCheck, title: canonicalTitle }); return; }
   const first = idxs[0];
-  let merged = { title: canonicalTitle, status: "ok", severity: "low", detail: "", fix: "", sources: [] };
+  let merged = { title: canonicalTitle, status: "ok", severity: "low", detail: "", fix: "", sources: [], mandatory: true };
   for (const i of idxs) {
     const c = checks[i] || {};
     merged.status  = (c.status !== "ok" || merged.status !== "ok") ? (c.status === "missing" ? "missing" : "issue") : "ok";
     merged.severity = worstSeverity(merged.severity, c.severity || "low");
+    if (typeof c.mandatory === "boolean") merged.mandatory = c.mandatory;
     if (c.detail) merged.detail = merged.detail ? (merged.detail + "  • " + c.detail) : c.detail;
     if (c.fix)    merged.fix    = merged.fix    ? (merged.fix    + "  • " + c.fix)    : c.fix;
     if (Array.isArray(c.sources)) merged.sources = Array.from(new Set([...(merged.sources||[]), ...c.sources]));
@@ -235,7 +316,8 @@ function dedupeAndCanonicalize(checks, key, canonicalTitle, preferredCheck) {
         severity: preferredCheck.severity || merged.severity,
         detail: preferredCheck.detail || merged.detail,
         fix: preferredCheck.fix || merged.fix,
-        sources: Array.from(new Set([...(merged.sources||[]), ...(preferredCheck.sources||[])]))
+        sources: Array.from(new Set([...(merged.sources||[]), ...(preferredCheck.sources||[])])),
+        mandatory: (typeof preferredCheck.mandatory === "boolean") ? preferredCheck.mandatory : merged.mandatory
       };
     } else if (merged.status === "ok") {
       merged = {
@@ -243,7 +325,8 @@ function dedupeAndCanonicalize(checks, key, canonicalTitle, preferredCheck) {
         status: "ok",
         severity: "low",
         detail: preferredCheck.detail || merged.detail,
-        sources: Array.from(new Set([...(merged.sources||[]), ...(preferredCheck.sources||[])]))
+        sources: Array.from(new Set([...(merged.sources||[]), ...(preferredCheck.sources||[])])),
+        mandatory: (typeof preferredCheck.mandatory === "boolean") ? preferredCheck.mandatory : merged.mandatory
       };
     }
   }
@@ -269,12 +352,12 @@ function enforce(report, fields, joinedText, rawTextBlocks) {
     const langPreferred = okLang ? {
       title: "Language Compliance", status: "ok", severity: "low",
       detail: `Includes at least one accepted language (${needSet.join(", ")}) for sale in ${fields.country_of_sale}.`,
-      fix: "", sources: ["EU1169:Art 15"]
+      fix: "", sources: ["EU1169:Art 15"], mandatory: true
     } : {
       title: "Language Compliance", status: "issue", severity: "medium",
       detail: `Required accepted language(s) for ${fields.country_of_sale}: ${needSet.join(", ")}. None detected.`,
       fix: `Add mandatory particulars in at least one accepted language (${needSet.join(", ")}).`,
-      sources: ["EU1169:Art 15"]
+      sources: ["EU1169:Art 15"], mandatory: true
     };
     dedupeAndCanonicalize(report.checks, "language", "Language Compliance", langPreferred);
   }
@@ -282,11 +365,12 @@ function enforce(report, fields, joinedText, rawTextBlocks) {
   // Sales name (if field empty, force missing)
   const salesPreferred = (fields.product_name || "").trim() ? {
     title: "Sales name", status: "ok", severity: "low",
-    detail: "Sales name provided.", fix: "", sources: ["EU1169:Art 17"]
+    detail: "Sales name provided.", fix: "", sources: ["EU1169:Art 17"], mandatory: true
   } : {
     title: "Sales name", status: "missing", severity: "medium",
-    detail: "Sales name of the food is not supplied.", fix: "Provide the legal/customary/description sales name.",
-    sources: ["EU1169:Art 17"]
+    detail: "Sales name of the food is not supplied.",
+    fix: "Provide the legal/customary/descriptive sales name.",
+    sources: ["EU1169:Art 17"], mandatory: true
   };
   dedupeAndCanonicalize(report.checks, "sales name", "Sales name", salesPreferred);
 
@@ -295,11 +379,12 @@ function enforce(report, fields, joinedText, rawTextBlocks) {
   const hasIngredients = find(ING_RX, lower);
   const ingredientsPreferred = hasIngredients ? {
     title: "Ingredient order", status: "ok", severity: "low",
-    detail: "Ingredients are listed.", fix: "", sources: ["EU1169:Art 18"]
+    detail: "Ingredients are listed.", fix: "", sources: ["EU1169:Art 18"], mandatory: true
   } : {
     title: "Ingredient list", status: "missing", severity: "medium",
-    detail: "Ingredient list not detected.", fix: "Provide ingredients in descending order by weight.",
-    sources: ["EU1169:Art 18"]
+    detail: "Ingredient list not detected.",
+    fix: "Provide ingredients in descending order by weight.",
+    sources: ["EU1169:Art 18"], mandatory: true
   };
   dedupeAndCanonicalize(report.checks, "ingredient", hasIngredients ? "Ingredient order" : "Ingredient list", ingredientsPreferred);
 
@@ -311,46 +396,45 @@ function enforce(report, fields, joinedText, rawTextBlocks) {
   const allergenPreferred = hasAllergenWords
     ? (hasEmphasisCue ? {
         title: "Annex II allergen emphasis", status: "ok", severity: "low",
-        detail: "Allergens appear emphasized (text cues present).", fix: "", sources: ["EU1169:Annex II"]
+        detail: "Allergens appear emphasized (text cues present).", fix: "", sources: ["EU1169:Annex II"], mandatory: true
       } : {
         title: "Annex II allergen emphasis", status: "issue", severity: "medium",
         detail: "Allergens detected but emphasis not confirmed from text/OCR. Formatting (bold) may be lost in PDFs.",
         fix: "Bold/emphasize allergens within the ingredients list.",
-        sources: ["EU1169:Annex II"]
+        sources: ["EU1169:Annex II"], mandatory: true
       })
     : {
         title: "Annex II allergen emphasis", status: "missing", severity: "low",
-        detail: "Allergens not detected in provided text.", fix: "If present, emphasize allergens within ingredients.",
-        sources: ["EU1169:Annex II"]
+        detail: "Allergens not detected in provided text.",
+        fix: "If present, emphasize allergens within ingredients.",
+        sources: ["EU1169:Annex II"], mandatory: true
       };
   dedupeAndCanonicalize(report.checks, "allergen", "Annex II allergen emphasis", allergenPreferred);
 
-  // QUID (improved: check both directions around token within nearby context in any text block)
+  // QUID (look near token both sides; scan blocks)
   const token = keywordFromName(fields.product_name || report.product?.name || "");
   if (token) {
-    const NEAR = 80; // characters proximity
+    const NEAR = 80;
     const patterns = [
       new RegExp(`\\b${token}\\b[^\\n]{0,${NEAR}}?\\b\\d{1,3}\\s*%`, "i"),
       new RegExp(`\\b\\d{1,3}\\s*%[^\\n]{0,${NEAR}}?\\b${token}\\b`, "i")
     ];
     let ok = patterns.some(rx => rx.test(lower));
-
-    // also scan individual blocks (ingredients line often extracted separately)
     if (!ok && Array.isArray(rawTextBlocks)) {
       for (const t of rawTextBlocks) {
         const L = String(t || "").toLowerCase();
         if (patterns.some(rx => rx.test(L))) { ok = true; break; }
       }
     }
-
     const quidPreferred = ok ? {
       title: "QUID", status: "ok", severity: "low",
-      detail: `Percentage for "${token}" appears present near sales name/ingredients.`, fix: "", sources: ["EU1169:Art 22; Annex VIII"]
+      detail: `Percentage for "${token}" appears present near sales name/ingredients.`,
+      fix: "", sources: ["EU1169:Art 22; Annex VIII"], mandatory: true
     } : {
       title: "QUID", status: "issue", severity: "high",
       detail: `Sales name suggests "${token}" as characterizing ingredient, but no percentage (%) found near sales name or in the ingredients list.`,
       fix: `Declare the percentage of "${token}" (e.g., "${token} 60%") near the sales name or within ingredients.`,
-      sources: ["EU1169:Art 22; Annex VIII"]
+      sources: ["EU1169:Art 22; Annex VIII"], mandatory: true
     };
     dedupeAndCanonicalize(report.checks, "quid", "QUID", quidPreferred);
   }
@@ -360,11 +444,12 @@ function enforce(report, fields, joinedText, rawTextBlocks) {
   const hasNet = find(NET_RX, lower);
   const netPreferred = hasNet ? {
     title: "Net quantity", status: "ok", severity: "low",
-    detail: "Net quantity detected.", fix: "", sources: ["EU1169:Art 23"]
+    detail: "Net quantity detected.", fix: "", sources: ["EU1169:Art 23"], mandatory: true
   } : {
     title: "Net quantity", status: "missing", severity: "medium",
-    detail: "Net quantity not detected.", fix: "Add net quantity with the correct unit (g/kg or ml/L).",
-    sources: ["EU1169:Art 23"]
+    detail: "Net quantity not detected.",
+    fix: "Add net quantity with the correct unit (g/kg or ml/L).",
+    sources: ["EU1169:Art 23"], mandatory: true
   };
   dedupeAndCanonicalize(report.checks, "net quantity", "Net quantity", netPreferred);
 
@@ -373,11 +458,12 @@ function enforce(report, fields, joinedText, rawTextBlocks) {
   const hasDate = find(DATE_RX, lower);
   const datePreferred = hasDate ? {
     title: "Date marking", status: "ok", severity: "low",
-    detail: "Date marking detected.", fix: "", sources: ["EU1169:Art 24"]
+    detail: "Date marking detected.", fix: "", sources: ["EU1169:Art 24"], mandatory: true
   } : {
     title: "Date marking", status: "missing", severity: "low",
-    detail: "Date marking not detected.", fix: "Add 'best before' or 'use by' as applicable.",
-    sources: ["EU1169:Art 24"]
+    detail: "Date marking not detected.",
+    fix: "Add 'best before' or 'use by' as applicable.",
+    sources: ["EU1169:Art 24"], mandatory: true
   };
   dedupeAndCanonicalize(report.checks, "date", "Date marking", datePreferred);
 
@@ -386,34 +472,35 @@ function enforce(report, fields, joinedText, rawTextBlocks) {
   const hasStorage = find(STORAGE_RX, lower);
   const storagePreferred = hasStorage ? {
     title: "Storage/conditions of use", status: "ok", severity: "low",
-    detail: "Storage/use statement detected.", fix: "", sources: ["EU1169:Art 25"]
+    detail: "Storage/use statement detected.", fix: "", sources: ["EU1169:Art 25"], mandatory: true
   } : {
     title: "Storage/conditions of use", status: "missing", severity: "low",
-    detail: "Storage/conditions of use not detected.", fix: "Add storage conditions and, if necessary, conditions of use.",
-    sources: ["EU1169:Art 25"]
+    detail: "Storage/conditions of use not detected.",
+    fix: "Add storage conditions and, if necessary, conditions of use.",
+    sources: ["EU1169:Art 25"], mandatory: true
   };
   dedupeAndCanonicalize(report.checks, "storage", "Storage/conditions of use", storagePreferred);
 
-  // FBO name/EU address (tightened: require a company token + a street token within proximity)
+  // FBO name/EU address (tightened heuristic)
   const COMPANY_TOKENS = /(s\.r\.l|srl|s\.p\.a|spa|ltd|gmbh|sas|s\.a\.|sa|oy|bv|s\.c\.)/i;
-  const STREET_TOKENS = /(via |viale |strada |piazza |street|road|rue|avenue|av\.|platz|platz\.|calle|postcode|\b\d{4,5}\b)/i;
+  const STREET_TOKENS = /(via |viale |strada |piazza |street|road|rue|avenue|av\.|platz|calle|postcode|\b\d{4,5}\b)/i;
   const hasCompany = find(COMPANY_TOKENS, lower);
   const hasStreet  = find(STREET_TOKENS, lower);
   let hasFbo = false;
   if (hasCompany && hasStreet) {
-    // proximity check
     const compIdx = lower.search(COMPANY_TOKENS);
     const strIdx  = lower.search(STREET_TOKENS);
     if (compIdx !== -1 && strIdx !== -1 && Math.abs(compIdx - strIdx) < 1200) hasFbo = true;
   }
   const fboPreferred = hasFbo ? {
     title: "FBO name/EU address", status: "ok", severity: "low",
-    detail: "Business name with EU postal address detected (proximity match).", fix: "", sources: ["EU1169:Art 9(1)(h)"]
+    detail: "Business name with EU postal address detected (proximity match).",
+    fix: "", sources: ["EU1169:Art 9(1)(h)"], mandatory: true
   } : {
     title: "FBO name/EU address", status: "missing", severity: "low",
     detail: "Business name and EU postal address not confirmed from text.",
     fix: "Add the food business operator’s name and full EU postal address.",
-    sources: ["EU1169:Art 9(1)(h)"]
+    sources: ["EU1169:Art 9(1)(h)"], mandatory: true
   };
   dedupeAndCanonicalize(report.checks, "address", "FBO name/EU address", fboPreferred);
 
@@ -422,11 +509,12 @@ function enforce(report, fields, joinedText, rawTextBlocks) {
   const hasNut = find(NUT_RX, lower);
   const nutPreferred = hasNut ? {
     title: "Nutrition declaration order per 100g/100ml", status: "ok", severity: "low",
-    detail: "Nutrition information detected.", fix: "", sources: ["EU1169:Annex XV"]
+    detail: "Nutrition information detected.", fix: "", sources: ["EU1169:Annex XV"], mandatory: true
   } : {
     title: "Nutrition declaration", status: "missing", severity: "medium",
-    detail: "Nutrition declaration not detected.", fix: "Provide the mandatory per 100 g/ml nutrition declaration.",
-    sources: ["EU1169:Annex XV"]
+    detail: "Nutrition declaration not detected.",
+    fix: "Provide the mandatory per 100 g/ml nutrition declaration.",
+    sources: ["EU1169:Annex XV"], mandatory: true
   };
   dedupeAndCanonicalize(report.checks, "nutrition", hasNut ? "Nutrition declaration order per 100g/100ml" : "Nutrition declaration", nutPreferred);
 
@@ -437,10 +525,10 @@ function enforce(report, fields, joinedText, rawTextBlocks) {
     title: "Claims", status: "issue", severity: "medium",
     detail: "Claims detected—verify authorization and conditions of use.",
     fix: "Ensure the claim is authorised and conditions of use are fulfilled (Reg. (EC) 1924/2006).",
-    sources: ["Reg 1924/2006"]
+    sources: ["Reg 1924/2006"], mandatory: true
   } : {
     title: "Claims", status: "ok", severity: "low",
-    detail: "No explicit claims detected.", fix: "", sources: []
+    detail: "No explicit claims detected.", fix: "", sources: [], mandatory: true
   };
   dedupeAndCanonicalize(report.checks, "claims", "Claims", claimPreferred);
 
@@ -510,7 +598,7 @@ async function buildPdfBase64(report, halalChecks, fields, { includeHalalPage = 
       doc.moveDown(0.5);
     }
 
-    // Halal
+    // Halal (only issues/missing to keep concise)
     const halalHasContent = Array.isArray(halalChecks) && halalChecks.length > 0;
     const halalAllOk = halalHasContent && halalChecks.every(h => h.status === "ok");
     if (includeHalalPage && halalHasContent && !halalAllOk) {
@@ -518,7 +606,7 @@ async function buildPdfBase64(report, halalChecks, fields, { includeHalalPage = 
       head("Halal Pre-Audit");
       doc.fontSize(10).fill("#000");
       for (const c of halalChecks) {
-        if (c.status === "ok") continue; // show only issues/missing for brevity
+        if (c.status === "ok") continue;
         doc.fill(c.status === "ok" ? "#0a7" : c.severity === "high" ? "#c00" : c.severity === "medium" ? "#c70" : "#000")
            .text(`• ${c.title} [${c.status.toUpperCase()} | ${c.severity}]`);
         doc.fill("#000");
@@ -567,7 +655,7 @@ async function buildPdfBase64(report, halalChecks, fields, { includeHalalPage = 
     );
     doc.fill("#000");
 
-    doc.end(); // resolve happens on 'end'
+    doc.end();
   });
 }
 function buildFallbackPdfBase64(message = "Report generated without full details.") {
@@ -597,10 +685,10 @@ export default async function handler(req, res) {
       tds_file,
       reference_docs_text, halal_audit,
 
-      // new optional toggles:
-      return_pdf = false,        // default: do not include base64 PDF in JSON
-      attach_pdf = true,         // default: send PDF via email when possible
-      include_halal_page = true  // default: include halal issues page when there are any
+      // optional toggles:
+      return_pdf = false,        // include base64 PDF in JSON response
+      attach_pdf = true,         // email PDF if possible
+      include_halal_page = true  // include halal issues page when present
     } = body || {};
 
     const fields = {
@@ -609,28 +697,44 @@ export default async function handler(req, res) {
       shipping_scope, product_category
     };
 
-    // Parse TDS
+    // Parse TDS (guarded)
     stage = "parse_tds";
     let tdsText = "";
     if (tds_file?.base64) {
-      if ((tds_file.name || "").toLowerCase().endsWith(".pdf")) {
-        const pdfParse = (await import("pdf-parse")).default;
-        const buf = Buffer.from(b64FromDataUrl(tds_file.base64), "base64");
-        const parsed = await pdfParse(buf);
-        tdsText = parsed.text || "";
-      } else {
-        try { tdsText = Buffer.from(b64FromDataUrl(tds_file.base64), "base64").toString("utf8"); } catch {}
+      try {
+        const base = b64FromDataUrl(tds_file.base64);
+        if (base && base.length > 0) {
+          const buf = Buffer.from(base, "base64");
+          if ((tds_file.name || "").toLowerCase().endsWith(".pdf")) {
+            const pdfParse = (await import("pdf-parse")).default;
+            const parsed = await pdfParse(buf);
+            tdsText = parsed?.text || "";
+          } else {
+            tdsText = buf.toString("utf8");
+          }
+        }
+      } catch (e) {
+        console.error("TDS parse failed:", e?.message || e);
+        tdsText = "";
       }
     }
 
-    // Parse Label PDF to text (optional)
+    // Parse Label PDF to text (guarded)
     stage = "parse_label_pdf";
     let labelPdfText = "";
     if (label_pdf_file?.base64) {
-      const pdfParse = (await import("pdf-parse")).default;
-      const buf = Buffer.from(b64FromDataUrl(label_pdf_file.base64), "base64");
-      const parsed = await pdfParse(buf);
-      labelPdfText = parsed.text || "";
+      try {
+        const base = b64FromDataUrl(label_pdf_file.base64);
+        if (base && base.length > 0) {
+          const buf = Buffer.from(base, "base64");
+          const pdfParse = (await import("pdf-parse")).default;
+          const parsed = await pdfParse(buf);
+          labelPdfText = parsed?.text || "";
+        }
+      } catch (e) {
+        console.error("Label PDF parse failed:", e?.message || e);
+        labelPdfText = "";
+      }
     }
 
     // Determine if inputs are essentially blank
@@ -642,7 +746,7 @@ export default async function handler(req, res) {
       !(reference_docs_text && String(reference_docs_text).trim()) &&
       !(product_name && String(product_name).trim());
 
-    // 1) Ask model (still useful for text shaping), but it’s hard-guarded by prompt
+    // 1) Ask model
     stage = "ask_eu";
     const raw = await askEU({
       fields,
@@ -652,7 +756,7 @@ export default async function handler(req, res) {
       extraText: reference_docs_text || ""
     });
 
-    // 2) Normalize
+    // 2) Normalize (preserve model's mandatory flag; default true)
     stage = "normalize";
     const report = {
       version: "1.0",
@@ -669,17 +773,18 @@ export default async function handler(req, res) {
         severity: ["low","medium","high"].includes(c?.severity) ? c.severity : "medium",
         detail: c?.detail || "",
         fix: c?.status === "ok" ? "" : (c?.fix || ""),
-        sources: Array.isArray(c?.sources) ? c.sources : []
+        sources: Array.isArray(c?.sources) ? c.sources : [],
+        mandatory: (typeof c?.mandatory === "boolean") ? c.mandatory : true
       })) : []
     };
 
-    // 3) Hard enforcement & de-dupe across all core areas
+    // 3) Hard enforcement & de-dupe
     stage = "enforce";
     const rawTextBlocks = [labelPdfText || "", tdsText || "", reference_docs_text || ""].filter(Boolean);
     const joined = rawTextBlocks.join("\n").toLowerCase();
     enforce(report, fields, joined, rawTextBlocks);
 
-    // If truly blank → overwrite with all missing (don’t let the model “OK” anything)
+    // Blank input → all missing (mandatory true for core)
     if (isBlank) {
       const coreTitles = [
         "Sales name",
@@ -700,7 +805,8 @@ export default async function handler(req, res) {
         severity: t === "QUID" ? "high" : "medium",
         detail: "No evidence found in the provided inputs.",
         fix: "Provide the required information.",
-        sources: []
+        sources: [],
+        mandatory: true
       }));
       report.summary = "Inputs were blank/scant. All core particulars are missing.";
     }
@@ -778,7 +884,7 @@ export default async function handler(req, res) {
     const elapsed = Date.now() - t0;
     const response = {
       ok: true,
-      version: "v9-guardrails",
+      version: "v10-model-anchored",
       model: OPENAI_MODEL,
       timings_ms: { total: elapsed },
       report,
@@ -790,7 +896,7 @@ export default async function handler(req, res) {
       email_status
     };
 
-    if (return_pdf) response.pdf_base64 = pdf_base64; // opt-in only
+    if (return_pdf) response.pdf_base64 = pdf_base64;
 
     return sendJson(res, 200, response);
   } catch (err) {
