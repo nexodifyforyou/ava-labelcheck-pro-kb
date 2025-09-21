@@ -315,11 +315,34 @@ const COUNTRY_LANG = {
 };
 function keywordFromName(name) {
   if (!name) return "";
-  const stop = new Set(["di","de","al","alla","allo","candite","canditi","sgocciolate","sgocciolato","sciroppo","glucosio","regolatore","acido","concentrato","sale","acqua"]);
-  const words = String(name).toLowerCase().replace(/[^\p{L}\p{N}\s]/gu," ").split(/\s+/).filter(Boolean);
+  const stop = new Set([
+    // connectors / articles
+    "di","de","del","della","delle","dei","al","allo","alla","alle","agli","ai","e","con","senza","di","da","a","in",
+    // generic food forms
+    "sugo","salsa","sauce","ragù","ragu","bolognese","condimento","crema","mix","miscela",
+    // common filler terms
+    "candite","canditi","sgocciolate","sgocciolato","sciroppo","glucosio","regolatore",
+    "acido","concentrato","sale","acqua","gusto","aroma","preparazione","base","prodotto"
+  ]);
+
+  // Prefer more distinctive tokens (last to first), keep “tartufi”, “fragola”, etc.
+  const words = String(name)
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+
+  // Scan from right → left to prefer distinctive trailing words (often the hero ingredient)
+  for (let i = words.length - 1; i >= 0; i--) {
+    const w = words[i];
+    if (!stop.has(w) && w.length > 2) return w;
+  }
+
+  // Fallback to first non-stop word if everything else failed
   for (const w of words) if (!stop.has(w) && w.length > 2) return w;
   return words[0] || "";
 }
+
 function worstSeverity(a,b){ const ord = { low:1, medium:2, high:3 }; return (ord[a||"low"] >= ord[b||"low"]) ? a : b; }
 function idxAllLike(checks, key) { const k = key.toLowerCase(); const idxs = []; checks.forEach((c,i)=>{ const t=(c?.title||"").toLowerCase(); if (t.includes(k)) idxs.push(i); }); return idxs; }
 function dedupeAndCanonicalize(checks, key, canonicalTitle, preferredCheck) {
@@ -758,15 +781,16 @@ export default async function handler(req, res) {
             } catch (e) {
               console.error("Label PDF parse failed (pdf-parse):", e?.message || e);
             }
-            // rasterize if sparse & no image provided
-            const sparse = !labelPdfText || labelPdfText.replace(/\s+/g, "").length < 200;
-            if (sparse && !imageDataUrl) {
-              const pngDataUrl = await pdfFirstPageToDataUrl(buf);
-              if (pngDataUrl) {
-                console.log("Rasterized PDF page to PNG for Vision");
-                imageDataUrl = pngDataUrl;
-              }
-            }
+            // ALWAYS rasterize first page if we have a PDF and no image provided
+if (!imageDataUrl) {
+  const pngDataUrl = await pdfFirstPageToDataUrl(buf);
+  if (pngDataUrl) {
+    console.log("Rasterized PDF page to PNG for Vision");
+    imageDataUrl = pngDataUrl;
+  } else {
+    console.warn("PDF rasterize returned null; proceeding without Vision image.");
+  }
+}
           } else { console.error("Label PDF buffer invalid/empty."); }
         } else { console.error("Label PDF base64 does not look valid; skipping parse."); }
       } catch (e) {
