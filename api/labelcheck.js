@@ -250,8 +250,7 @@ async function askHalal({ fields, imageDataUrl, labelPdfText, tdsText, extraText
   );
   return extractJson(r.choices?.[0]?.message?.content || "[]", true);
 }
-
-/* ====== PDF→PNG first-page rasterizer (Node, ESM-safe, no worker) ====== */
+/* ====== PDF→PNG first-page rasterizer (Node, ESM-safe, legacy build, no worker) ====== */
 async function pdfFirstPageToDataUrl(buf) {
   try {
     // 1) Canvas (prefer @napi-rs/canvas; fallback to node-canvas)
@@ -261,30 +260,28 @@ async function pdfFirstPageToDataUrl(buf) {
     console.log("labelcheck v12: canvas impl =", canvasImpl);
     if (!createCanvas) throw new Error("no canvas runtime");
 
-    // 2) pdfjs-dist modern ESM entry
-    const pdfjsLib = await import("pdfjs-dist/build/pdf.mjs");
+    // 2) Use the **legacy** pdfjs build for Node
+    //    (pre-bundled for Node; avoids worker requirement)
+    const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
     console.log("labelcheck v12: pdfjs-dist version =", pdfjsLib.version);
 
-    // IMPORTANT:
-    //  - Do NOT set GlobalWorkerOptions.workerSrc in Node.
-    //  - Force worker OFF so it doesn’t try to import pdf.worker.mjs.
-    //  - Some builds also honor GlobalWorkerOptions.workerPort = null.
+    // DO NOT set workerSrc. Force worker off.
+    // Some builds still look at workerPort; null it for safety.
     try { pdfjsLib.GlobalWorkerOptions.workerPort = null; } catch {}
 
-    // 3) Load PDF from memory (worker disabled)
+    // 3) Load PDF from memory — worker disabled
     const loadingTask = pdfjsLib.getDocument({
       data: new Uint8Array(buf),
-      disableWorker: true,        // <— key line: avoid web worker in Node
+      disableWorker: true,       // <- key line
       isEvalSupported: false,
       useSystemFonts: true,
-      stopAtErrors: true
+      stopAtErrors: true,
     });
-
     const pdf = await loadingTask.promise;
     const page = await pdf.getPage(1);
 
-    // 4) Render to a Node canvas
-    const scale = 2.0; // 2x is fine for OCR
+    // 4) Render to Node canvas
+    const scale = 2.0; // good for OCR
     const viewport = page.getViewport({ scale });
     const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
     const ctx = canvas.getContext("2d");
@@ -294,10 +291,12 @@ async function pdfFirstPageToDataUrl(buf) {
     const png = canvas.toBuffer("image/png");
     return "data:image/png;base64," + png.toString("base64");
   } catch (e) {
-    console.error("PDF rasterize fallback failed (esm):", e?.message || e);
+    console.error("PDF rasterize fallback failed (legacy):", e?.message || e);
     return null;
   }
 }
+
+
 /* ====== deterministic post-checks ====== */
 const COUNTRY_LANG = {
   italy: ["it"], germany: ["de"], france: ["fr"], spain: ["es"], portugal: ["pt"],
