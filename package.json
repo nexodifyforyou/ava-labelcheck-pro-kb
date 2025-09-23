@@ -14,8 +14,7 @@
     "resend": "^4.0.0",
     "pdfjs-dist": "3.11.174"
   },
-  "optionalDependencies": {
-    "@napi-rs/canvas": "^0.1.58",
-    "canvas": "^2.11.2"
+  "devDependencies": {
+    "vercel": "^39.1.0"
   }
 }
