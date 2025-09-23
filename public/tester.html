@@ -59,7 +59,7 @@
     <div class="row">
       <div>
         <label>Label PDF (preferred)</label>
-        <input id="label_pdf" type="file" accept=".pdf" />
+        <input id="label_pdf" type="file" accept="application/pdf" />
       </div>
       <div>
         <label>OR Label image (PNG/JPG)</label>
@@ -70,7 +70,7 @@
     <div class="row">
       <div>
         <label>TDS file (pdf, docx, md, txt)</label>
-        <input id="tds_file" type="file" />
+        <input id="tds_file" type="file" accept=".pdf,.doc,.docx,.md,.txt" />
       </div>
       <div>
         <label>Extra rules / buyer requirements (optional)</label>
@@ -156,14 +156,16 @@ document.getElementById('btnSend').onclick = async () => {
       return_pdf: document.getElementById('return_pdf').checked
     };
 
-    // files → data URLs
     const pdfFile = document.getElementById('label_pdf').files[0];
     const imgFile = document.getElementById('label_img').files[0];
     const tdsFile = document.getElementById('tds_file').files[0];
 
+    // ✅ These two keys are what your API expects:
     if (pdfFile) body.label_pdf_file = { name: pdfFile.name, base64: await toDataUrl(pdfFile) };
+    if (tdsFile) body.tds_file       = { name: tdsFile.name,   base64: await toDataUrl(tdsFile) };
+
+    // (Optional) label image is ignored by the new backend, but harmless to send:
     if (imgFile) body.label_image_data_url = await toDataUrl(imgFile);
-    if (tdsFile) body.tds_file = { name: tdsFile.name, base64: await toDataUrl(tdsFile) };
 
     setStatus('Sending…', true);
     const j = await callApi(body);
@@ -178,7 +180,7 @@ document.getElementById('btnSend').onclick = async () => {
 
     document.getElementById('out').textContent = JSON.stringify(j, null, 2);
 
-    // make a PDF download link if present
+    // Make a PDF download link if present
     const a = document.getElementById('pdfLink');
     if (j.pdf_base64) {
       a.href = 'data:application/pdf;base64,' + j.pdf_base64;
