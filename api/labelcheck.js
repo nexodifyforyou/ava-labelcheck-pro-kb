@@ -12,6 +12,11 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
+// ✅ PDF text extraction deps (no OCR, no canvas)
+import pdfParse from "pdf-parse";
+import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
+import "pdfjs-dist/legacy/build/pdf.worker.mjs";
+
 /* ====== clients / env ====== */
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const resend = new Resend(process.env.RESEND_API_KEY ?? "");
@@ -162,44 +167,29 @@ async function withRetry(fn, { tries = 3, baseMs = 400 } = {}) {
   throw lastErr;
 }
 
-/* ====== Vision OCR (Phase 0) — with allergen emphasis ====== */
-async function visionTranscribeLabel(imageDataUrl) {
-  if (!imageDataUrl) return "";
-  const messages = [
-    { role: "system", content:
-      "You are a meticulous label transcriber. Extract exactly what is printed; no translation, no summarization." },
-    { role: "user", content: [
-        { type: "text", text:
-`Extract the on-pack text exactly as printed.
+/* ====== PDF text extraction (no OCR, no canvas) ====== */
+async function extractPdfText(buffer) {
+  if (!buffer || !Buffer.isBuffer(buffer) || buffer.length === 0) return "";
 
-Rules:
-- Return ONLY plain text (no JSON, no tables, no markdown except where noted).
-- Preserve line breaks and reading order (left→right, top→bottom).
-- Keep original languages, capitalization, punctuation, numbers, symbols, and units (%, g, ml, ℮, kJ/kcal).
-- If anything is unclear, write [illegible].
-- Include: sales name(s), full ingredients (as one continuous list), allergen statements, net quantity, date lines (BEST BEFORE/USE BY), storage/use, FBO name/address/contacts, country of origin/provenance, alcohol % if any, nutrition per 100 g/ml, any certification text/logos (issuer), recycling text.
-- Do NOT infer; only what is visibly printed.
+  // 1) Fast path: pdf-parse
+  try {
+    const data = await pdfParse(buffer);
+    if (data?.text && data.text.trim().length > 0) return data.text;
+  } catch (_) {}
 
-Allergen emphasis:
-- If allergens are visually emphasized on-pack (bold/ALL CAPS/contrast), wrap ONLY those emphasized allergen words with **double asterisks** (e.g., “… **MILK**, **ALMONDS** …”). Do not add asterisks elsewhere.
-
-Output: raw transcribed text only (plain text, with ** used solely to mark visible allergen emphasis).` },
-        { type: "image_url", image_url: { url: imageDataUrl } }
-      ] }
-  ];
-  const r = await withRetry(() => openai.chat.completions.create({
-    model: OPENAI_MODEL,   // e.g., "gpt-4o-mini"
-    temperature: 0.0,
-    messages
-  }));
-  const out = (r.choices?.[0]?.message?.content || "").trim();
-  const fenced = out.match(/```[\s\S]*?```/);
-  return fenced ? fenced[0].replace(/^```[a-z]*\n?|\n?```$/g, "") : out;
+  // 2) Fallback: pdf.js text content
+  const pdf = await getDocument({ data: buffer }).promise;
+  let text = "";
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map((it) => it.str).join(" ") + "\n";
+  }
+  return text;
 }
 
-
 /* ====== Model calls ====== */
-async function askEU({ fields, imageDataUrl, labelPdfText, tdsText, extraText }) {
+async function askEU({ fields, labelPdfText, tdsText, extraText }) {
   const userParts = [];
   const kbText = [
     KB_HOUSE && `House Rules:\n${KB_HOUSE}`,
@@ -210,8 +200,7 @@ async function askEU({ fields, imageDataUrl, labelPdfText, tdsText, extraText })
   userParts.push({ type: "text", text: `Fields:\n${clamp(JSON.stringify(fields, null, 2), 3500)}` });
   if (extraText)     userParts.push({ type: "text", text: `Extra rules:\n${clamp(extraText, 3500)}` });
   if (tdsText)       userParts.push({ type: "text", text: `TDS excerpt:\n${clamp(tdsText, 6000)}` });
-  if (labelPdfText)  userParts.push({ type: "text", text: `Label/OCR text:\n${clamp(labelPdfText, 8000)}` });
-  if (imageDataUrl)  userParts.push({ type: "image_url", image_url: { url: imageDataUrl } });
+  if (labelPdfText)  userParts.push({ type: "text", text: `Label text:\n${clamp(labelPdfText, 8000)}` });
 
   const r = await withRetry(() =>
     openai.chat.completions.create({
@@ -227,15 +216,14 @@ async function askEU({ fields, imageDataUrl, labelPdfText, tdsText, extraText })
   return extractJson(r.choices?.[0]?.message?.content || "{}", false);
 }
 
-async function askHalal({ fields, imageDataUrl, labelPdfText, tdsText, extraText }) {
+async function askHalal({ fields, labelPdfText, tdsText, extraText }) {
   const parts = [];
   const kb = (KB_HALAL ? `halal-rules.md:\n${KB_HALAL}\n\n` : "") + (KB_BUYER ? `buyer-generic-eu.md:\n${KB_BUYER}` : "");
   if (kb) parts.push({ type: "text", text: clamp(kb, 8000) });
   parts.push({ type: "text", text: `Fields:\n${clamp(JSON.stringify(fields, null, 2), 3500)}` });
   if (extraText)     parts.push({ type: "text", text: `Extra rules:\n${clamp(extraText, 3500)}` });
   if (tdsText)       parts.push({ type: "text", text: `TDS excerpt:\n${clamp(tdsText, 6000)}` });
-  if (labelPdfText)  parts.push({ type: "text", text: `Label/OCR text:\n${clamp(labelPdfText, 8000)}` });
-  if (imageDataUrl)  parts.push({ type: "image_url", image_url: { url: imageDataUrl } });
+  if (labelPdfText)  parts.push({ type: "text", text: `Label text:\n${clamp(labelPdfText, 8000)}` });
 
   const r = await withRetry(() =>
     openai.chat.completions.create({
@@ -250,71 +238,8 @@ async function askHalal({ fields, imageDataUrl, labelPdfText, tdsText, extraText
   );
   return extractJson(r.choices?.[0]?.message?.content || "[]", true);
 }
-/* ====== PDF→PNG first-page rasterizer (Node-safe: tries v3 then v4 legacy; no worker) ====== */
-async function pdfFirstPageToDataUrl(buf) {
-  try {
-    // 1) Canvas (prefer @napi-rs/canvas; fallback to node-canvas)
-    let createCanvas, canvasImpl = "none";
-    try { ({ createCanvas } = await import("@napi-rs/canvas")); canvasImpl = "@napi-rs/canvas"; }
-    catch { try { ({ createCanvas } = await import("canvas")); canvasImpl = "canvas"; } catch { createCanvas = null; } }
-    console.log("labelcheck v12: canvas impl =", canvasImpl);
-    if (!createCanvas) throw new Error("no canvas runtime");
 
-    // 2) Try pdfjs-dist v3 legacy first, then v4 legacy
-    let pdfjsLib = null;
-    let pdfjsFlavor = "";
-    try {
-      pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs"); // v3 preferred in Node
-      pdfjsFlavor = "v3-legacy";
-    } catch {
-      try {
-        pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs"); // v4 also has legacy
-        pdfjsFlavor = "v4-legacy";
-      } catch (e) {
-        // Some bundlers flatten paths; final fallback: non-legacy build (may warn)
-        try {
-          pdfjsLib = await import("pdfjs-dist/build/pdf.mjs");
-          pdfjsFlavor = "v4-build";
-        } catch (e2) {
-          console.error("pdfjs import failed:", e2?.message || e2);
-          throw new Error("pdfjs-dist not installed");
-        }
-      }
-    }
-    console.log("labelcheck v12: pdfjs flavor =", pdfjsFlavor, "version =", pdfjsLib?.version || "unknown");
-
-    // 3) Force worker OFF in Node
-    try { pdfjsLib.GlobalWorkerOptions.workerPort = null; } catch {}
-    // Do NOT set workerSrc. Disable worker in getDocument.
-    const loadingTask = pdfjsLib.getDocument({
-      data: new Uint8Array(buf),
-      disableWorker: true,
-      isEvalSupported: false,
-      useSystemFonts: true,
-      stopAtErrors: true
-    });
-
-    const pdf = await loadingTask.promise;
-    const page = await pdf.getPage(1);
-
-    // 4) Render to Node canvas
-    const scale = 2.0;
-    const viewport = page.getViewport({ scale });
-    const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
-    const ctx = canvas.getContext("2d");
-    await page.render({ canvasContext: ctx, viewport }).promise;
-
-    const png = canvas.toBuffer("image/png");
-    console.log("Rasterized PDF page to PNG for Vision");
-    return "data:image/png;base64," + png.toString("base64");
-  } catch (e) {
-    console.error("PDF rasterize fallback failed (robust):", e?.message || e);
-    return null;
-  }
-}
-
-
-/* ====== deterministic post-checks ====== */
+/* ====== deterministic post-checks (unchanged) ====== */
 const COUNTRY_LANG = {
   italy: ["it"], germany: ["de"], france: ["fr"], spain: ["es"], portugal: ["pt"],
   netherlands: ["nl"], belgium: ["nl","fr","de"], austria: ["de"], denmark: ["da"],
@@ -325,33 +250,16 @@ const COUNTRY_LANG = {
 function keywordFromName(name) {
   if (!name) return "";
   const stop = new Set([
-    // connectors / articles
     "di","de","del","della","delle","dei","al","allo","alla","alle","agli","ai","e","con","senza","di","da","a","in",
-    // generic food forms
     "sugo","salsa","sauce","ragù","ragu","bolognese","condimento","crema","mix","miscela",
-    // common filler terms
     "candite","canditi","sgocciolate","sgocciolato","sciroppo","glucosio","regolatore",
     "acido","concentrato","sale","acqua","gusto","aroma","preparazione","base","prodotto"
   ]);
-
-  // Prefer more distinctive tokens (last to first), keep “tartufi”, “fragola”, etc.
-  const words = String(name)
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
-    .split(/\s+/)
-    .filter(Boolean);
-
-  // Scan from right → left to prefer distinctive trailing words (often the hero ingredient)
-  for (let i = words.length - 1; i >= 0; i--) {
-    const w = words[i];
-    if (!stop.has(w) && w.length > 2) return w;
-  }
-
-  // Fallback to first non-stop word if everything else failed
+  const words = String(name).toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter(Boolean);
+  for (let i = words.length - 1; i >= 0; i--) { const w = words[i]; if (!stop.has(w) && w.length > 2) return w; }
   for (const w of words) if (!stop.has(w) && w.length > 2) return w;
   return words[0] || "";
 }
-
 function worstSeverity(a,b){ const ord = { low:1, medium:2, high:3 }; return (ord[a||"low"] >= ord[b||"low"]) ? a : b; }
 function idxAllLike(checks, key) { const k = key.toLowerCase(); const idxs = []; checks.forEach((c,i)=>{ const t=(c?.title||"").toLowerCase(); if (t.includes(k)) idxs.push(i); }); return idxs; }
 function dedupeAndCanonicalize(checks, key, canonicalTitle, preferredCheck) {
@@ -397,6 +305,13 @@ function enforce(report, fields, joinedText, rawBlocks=[]) {
   const lower = joinedText.toLowerCase();
 
   // Language compliance
+  const COUNTRY_LANG = {
+    italy: ["it"], germany: ["de"], france: ["fr"], spain: ["es"], portugal: ["pt"],
+    netherlands: ["nl"], belgium: ["nl","fr","de"], austria: ["de"], denmark: ["da"],
+    sweden: ["sv"], finland: ["fi"], poland: ["pl"], romania: ["ro"], greece: ["el"],
+    czechia: ["cs"], slovakia: ["sk"], slovenia: ["sl"], hungary: ["hu"],
+    ireland: ["en"], "united kingdom": ["en"], switzerland: ["de","fr","it"], luxembourg: ["fr","de","lb"]
+  };
   const needSet = COUNTRY_LANG[(fields.country_of_sale||"").toLowerCase()] || null;
   if (needSet && needSet.length) {
     const have = Array.isArray(report.product?.languages_provided)
@@ -453,7 +368,7 @@ function enforce(report, fields, joinedText, rawBlocks=[]) {
         detail: "Allergens appear emphasized (format cues).", fix: "", sources: ["EU1169:Annex II"], mandatory: true
       } : {
         title: "Annex II allergen emphasis", status: "issue", severity: "medium",
-        detail: "Allergens detected but emphasis not confirmed from text/OCR.",
+        detail: "Allergens detected but emphasis not confirmed from text.",
         fix: "Bold/emphasize allergens within the ingredients list.",
         sources: ["EU1169:Annex II"], mandatory: true
       })
@@ -731,7 +646,8 @@ export default async function handler(req, res) {
       product_name, company_name, company_email,
       country_of_sale, languages_provided = [],
       shipping_scope, product_category,
-      label_image_data_url, label_pdf_file,
+      label_image_data_url, // ignored now (no vision)
+      label_pdf_file,
       tds_file,
       reference_docs_text, halal_audit,
 
@@ -747,7 +663,7 @@ export default async function handler(req, res) {
       shipping_scope, product_category
     };
 
-    /* === TDS parse (guarded) === */
+    /* === TDS parse with fallback === */
     stage = "parse_tds";
     let tdsText = "";
     if (tds_file?.base64) {
@@ -756,9 +672,7 @@ export default async function handler(req, res) {
         if (base && base.length > 0) {
           const buf = Buffer.from(base, "base64");
           if ((tds_file.name || "").toLowerCase().endsWith(".pdf")) {
-            const pdfParse = (await import("pdf-parse")).default;
-            const parsed = await pdfParse(buf);
-            tdsText = parsed?.text || "";
+            tdsText = await extractPdfText(buf);
           } else {
             tdsText = buf.toString("utf8");
           }
@@ -766,65 +680,22 @@ export default async function handler(req, res) {
       } catch (e) { console.error("TDS parse failed:", e?.message || e); }
     }
 
-    /* === Label PDF parse (guarded) + rasterize fallback === */
+    /* === Label PDF parse with fallback (no OCR/vision) === */
     stage = "parse_label_pdf";
     let labelPdfText = "";
-    let imageDataUrl = label_image_data_url || null;
-
     if (label_pdf_file?.base64) {
       try {
-        let base = label_pdf_file.base64;
-        if (typeof base !== "string") { console.error("Label PDF base64 not a string"); base = ""; }
-        const b64 = base.includes(",") ? base.slice(base.indexOf(",")+1) : base;
-
-        const looksB64 = /^[A-Za-z0-9+/=\s]+$/.test(b64 || "");
-        if (looksB64 && b64.length > 200) {
+        const b64 = b64FromDataUrl(label_pdf_file.base64);
+        if (b64 && b64.length > 0) {
           const buf = Buffer.from(b64, "base64");
-       console.log("labelcheck v12: attempting PDF rasterize (bytes)", (buf && buf.length) || 0);
-          if (Buffer.isBuffer(buf) && buf.length > 0) {
-            // text layer
-            try {
-              const pdfParse = (await import("pdf-parse")).default;
-              const parsed = await pdfParse(buf);
-              labelPdfText = typeof parsed?.text === "string" ? parsed.text : "";
-            } catch (e) {
-              console.error("Label PDF parse failed (pdf-parse):", e?.message || e);
-            }
-            // ALWAYS rasterize first page if we have a PDF and no image provided
-if (!imageDataUrl) {
-  const pngDataUrl = await pdfFirstPageToDataUrl(buf);
-  if (pngDataUrl) {
-    console.log("Rasterized PDF page to PNG for Vision");
-    imageDataUrl = pngDataUrl;
-  } else {
-    console.warn("PDF rasterize returned null; proceeding without Vision image.");
-  }
-}
-          } else { console.error("Label PDF buffer invalid/empty."); }
-        } else { console.error("Label PDF base64 does not look valid; skipping parse."); }
-      } catch (e) {
-        console.error("Label PDF base64 decode failed:", e?.message || e);
-      }
-    }
-
-    /* === Phase 0 Vision OCR (if we have an image) === */
-    stage = "vision_ocr";
-    if (imageDataUrl) {
-      try {
-        const visionText = await visionTranscribeLabel(imageDataUrl);
-        if (visionText && visionText.length > 10) {
-          // Prepend vision text so it’s weighted strongly
-          labelPdfText = (visionText + "\n\n" + (labelPdfText || "")).trim();
+          labelPdfText = await extractPdfText(buf);
         }
-      } catch (e) {
-        console.error("Vision transcription failed:", e?.message || e);
-      }
+      } catch (e) { console.error("Label PDF parse failed:", e?.message || e); }
     }
 
     /* === blank detection === */
     stage = "check_blank";
     const isBlank =
-      !(imageDataUrl && String(imageDataUrl).trim()) &&
       !(label_pdf_file?.base64) &&
       !(tdsText && tdsText.trim()) &&
       !(reference_docs_text && String(reference_docs_text).trim()) &&
@@ -834,7 +705,6 @@ if (!imageDataUrl) {
     stage = "ask_eu";
     const raw = await askEU({
       fields,
-      imageDataUrl: imageDataUrl || null,
       labelPdfText: labelPdfText || null,
       tdsText: tdsText || null,
       extraText: reference_docs_text || ""
@@ -893,7 +763,6 @@ if (!imageDataUrl) {
     if (halal_audit) {
       const hal = await askHalal({
         fields,
-        imageDataUrl: imageDataUrl || null,
         labelPdfText: labelPdfText || null,
         tdsText: tdsText || null,
         extraText: reference_docs_text || ""
@@ -950,7 +819,7 @@ if (!imageDataUrl) {
 
     const resp = {
       ok: true,
-      version: "v12-vision-phase",
+      version: "v12-text-only",
       model: OPENAI_MODEL,
       report,
       score: report.score,
