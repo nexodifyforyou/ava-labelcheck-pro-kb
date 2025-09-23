@@ -166,6 +166,7 @@ document.getElementById('btnSend').onclick = async () => {
 
     // (Optional) label image is ignored by the new backend, but harmless to send:
     if (imgFile) body.label_image_data_url = await toDataUrl(imgFile);
+    body.debug = true;   // 👈 adds debug flag to API request
 
     setStatus('Sending…', true);
     const j = await callApi(body);
