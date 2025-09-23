@@ -12,11 +12,6 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
-// ✅ PDF text extraction deps (no OCR, no canvas)
-import pdfParse from "pdf-parse";
-import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
-import "pdfjs-dist/legacy/build/pdf.worker.mjs";
-
 /* ====== clients / env ====== */
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const resend = new Resend(process.env.RESEND_API_KEY ?? "");
@@ -167,79 +162,44 @@ async function withRetry(fn, { tries = 3, baseMs = 400 } = {}) {
   throw lastErr;
 }
 
-/* ====== PDF text extraction (no OCR, no canvas) ====== */
-async function extractPdfText(buffer) {
-  if (!buffer || !Buffer.isBuffer(buffer) || buffer.length === 0) return "";
+/* ====== PDF text extraction (no OCR; fast path + safe fallback) ====== */
+async function extractPdfTextFromBase64(dataUrlOrB64) {
+  if (!dataUrlOrB64) return "";
+  const b64 = dataUrlOrB64.includes(",")
+    ? dataUrlOrB64.slice(dataUrlOrB64.indexOf(",") + 1)
+    : dataUrlOrB64;
+  if (!b64) return "";
+  const buf = Buffer.from(b64, "base64");
+  if (!buf?.length) return "";
 
   // 1) Fast path: pdf-parse
   try {
-    const data = await pdfParse(buffer);
-    if (data?.text && data.text.trim().length > 0) return data.text;
-  } catch (_) {}
-
-  // 2) Fallback: pdf.js text content
-  const pdf = await getDocument({ data: buffer }).promise;
-  let text = "";
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    text += content.items.map((it) => it.str).join(" ") + "\n";
+    const pdfParse = (await import("pdf-parse")).default;
+    const parsed = await pdfParse(buf);
+    if (parsed?.text && parsed.text.trim().length > 0) return parsed.text;
+  } catch (e) {
+    console.warn("pdf-parse failed, will try pdfjs-dist fallback:", e?.message || e);
   }
-  return text;
+
+  // 2) Safe fallback: lazy load pdfjs-dist; if not present, just return ""
+  try {
+    const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    try { pdfjs.GlobalWorkerOptions.workerPort = null; } catch {}
+    const pdf = await pdfjs.getDocument({ data: buf, disableWorker: true }).promise;
+    let text = "";
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      text += content.items.map(it => it.str).join(" ") + "\n";
+    }
+    return text;
+  } catch (e) {
+    console.warn("pdfjs-dist fallback unavailable:", e?.message || e);
+    return "";
+  }
 }
 
-/* ====== Model calls ====== */
-async function askEU({ fields, labelPdfText, tdsText, extraText }) {
-  const userParts = [];
-  const kbText = [
-    KB_HOUSE && `House Rules:\n${KB_HOUSE}`,
-    KB_REFS  && `EU References:\n${KB_REFS}`,
-    KB_BUYER && `Buyer Generic Rules:\n${KB_BUYER}`
-  ].filter(Boolean).join("\n\n");
-  if (kbText) userParts.push({ type: "text", text: clamp(kbText, 9000) });
-  userParts.push({ type: "text", text: `Fields:\n${clamp(JSON.stringify(fields, null, 2), 3500)}` });
-  if (extraText)     userParts.push({ type: "text", text: `Extra rules:\n${clamp(extraText, 3500)}` });
-  if (tdsText)       userParts.push({ type: "text", text: `TDS excerpt:\n${clamp(tdsText, 6000)}` });
-  if (labelPdfText)  userParts.push({ type: "text", text: `Label text:\n${clamp(labelPdfText, 8000)}` });
-
-  const r = await withRetry(() =>
-    openai.chat.completions.create({
-      model: OPENAI_MODEL,
-      temperature: 0.1,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: userParts },
-        { role: "user", content: "Return only the JSON object—no commentary, no code fences. If inputs are blank, all core mandatory checks must be missing and optional marked non-mandatory." }
-      ]
-    })
-  );
-  return extractJson(r.choices?.[0]?.message?.content || "{}", false);
-}
-
-async function askHalal({ fields, labelPdfText, tdsText, extraText }) {
-  const parts = [];
-  const kb = (KB_HALAL ? `halal-rules.md:\n${KB_HALAL}\n\n` : "") + (KB_BUYER ? `buyer-generic-eu.md:\n${KB_BUYER}` : "");
-  if (kb) parts.push({ type: "text", text: clamp(kb, 8000) });
-  parts.push({ type: "text", text: `Fields:\n${clamp(JSON.stringify(fields, null, 2), 3500)}` });
-  if (extraText)     parts.push({ type: "text", text: `Extra rules:\n${clamp(extraText, 3500)}` });
-  if (tdsText)       parts.push({ type: "text", text: `TDS excerpt:\n${clamp(tdsText, 6000)}` });
-  if (labelPdfText)  parts.push({ type: "text", text: `Label text:\n${clamp(labelPdfText, 8000)}` });
-
-  const r = await withRetry(() =>
-    openai.chat.completions.create({
-      model: OPENAI_MODEL,
-      temperature: 0.1,
-      messages: [
-        { role: "system", content: HALAL_PROMPT },
-        { role: "user", content: parts },
-        { role: "user", content: "Return only the JSON array—no commentary, no code fences. Mark missing if unconfirmed." }
-      ]
-    })
-  );
-  return extractJson(r.choices?.[0]?.message?.content || "[]", true);
-}
-
-/* ====== deterministic post-checks (unchanged) ====== */
+/* ====== deterministic helpers (same as your original) ====== */
 const COUNTRY_LANG = {
   italy: ["it"], germany: ["de"], france: ["fr"], spain: ["es"], portugal: ["pt"],
   netherlands: ["nl"], belgium: ["nl","fr","de"], austria: ["de"], denmark: ["da"],
@@ -305,13 +265,6 @@ function enforce(report, fields, joinedText, rawBlocks=[]) {
   const lower = joinedText.toLowerCase();
 
   // Language compliance
-  const COUNTRY_LANG = {
-    italy: ["it"], germany: ["de"], france: ["fr"], spain: ["es"], portugal: ["pt"],
-    netherlands: ["nl"], belgium: ["nl","fr","de"], austria: ["de"], denmark: ["da"],
-    sweden: ["sv"], finland: ["fi"], poland: ["pl"], romania: ["ro"], greece: ["el"],
-    czechia: ["cs"], slovakia: ["sk"], slovenia: ["sl"], hungary: ["hu"],
-    ireland: ["en"], "united kingdom": ["en"], switzerland: ["de","fr","it"], luxembourg: ["fr","de","lb"]
-  };
   const needSet = COUNTRY_LANG[(fields.country_of_sale||"").toLowerCase()] || null;
   if (needSet && needSet.length) {
     const have = Array.isArray(report.product?.languages_provided)
@@ -521,7 +474,7 @@ function recomputeScore(report) {
   return { score, overall };
 }
 
-/* ====== PDF building ====== */
+/* ====== PDF building (rich) ====== */
 async function buildPdfBase64(report, halalChecks, fields, { includeHalalPage = true } = {}) {
   return await new Promise((resolve) => {
     const doc = new PDFDocument({ size: "A4", margin: 36 });
@@ -633,11 +586,61 @@ function buildFallbackPdfBase64(message = "Report generated without full details
   return Buffer.concat(bufs).toString("base64");
 }
 
+/* ====== model calls ====== */
+async function askEU({ fields, labelPdfText, tdsText, extraText }) {
+  const userParts = [];
+  const kbText = [
+    KB_HOUSE && `House Rules:\n${KB_HOUSE}`,
+    KB_REFS  && `EU References:\n${KB_REFS}`,
+    KB_BUYER && `Buyer Generic Rules:\n${KB_BUYER}`
+  ].filter(Boolean).join("\n\n");
+  if (kbText) userParts.push({ type: "text", text: clamp(kbText, 9000) });
+  userParts.push({ type: "text", text: `Fields:\n${clamp(JSON.stringify(fields, null, 2), 3500)}` });
+  if (extraText)     userParts.push({ type: "text", text: `Extra rules:\n${clamp(extraText, 3500)}` });
+  if (tdsText)       userParts.push({ type: "text", text: `TDS excerpt:\n${clamp(tdsText, 6000)}` });
+  if (labelPdfText)  userParts.push({ type: "text", text: `Label/OCR text:\n${clamp(labelPdfText, 8000)}` });
+
+  const r = await withRetry(() =>
+    openai.chat.completions.create({
+      model: OPENAI_MODEL,
+      temperature: 0.1,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userParts },
+        { role: "user", content: "Return only the JSON object—no commentary, no code fences. If inputs are blank, all core mandatory checks must be missing and optional marked non-mandatory." }
+      ]
+    })
+  );
+  return extractJson(r.choices?.[0]?.message?.content || "{}", false);
+}
+
+async function askHalal({ fields, labelPdfText, tdsText, extraText }) {
+  const parts = [];
+  const kb = (KB_HALAL ? `halal-rules.md:\n${KB_HALAL}\n\n` : "") + (KB_BUYER ? `buyer-generic-eu.md:\n${KB_BUYER}` : "");
+  if (kb) parts.push({ type: "text", text: clamp(kb, 8000) });
+  parts.push({ type: "text", text: `Fields:\n${clamp(JSON.stringify(fields, null, 2), 3500)}` });
+  if (extraText)     parts.push({ type: "text", text: `Extra rules:\n${clamp(extraText, 3500)}` });
+  if (tdsText)       parts.push({ type: "text", text: `TDS excerpt:\n${clamp(tdsText, 6000)}` });
+  if (labelPdfText)  parts.push({ type: "text", text: `Label/OCR text:\n${clamp(labelPdfText, 8000)}` });
+
+  const r = await withRetry(() =>
+    openai.chat.completions.create({
+      model: OPENAI_MODEL,
+      temperature: 0.1,
+      messages: [
+        { role: "system", content: HALAL_PROMPT },
+        { role: "user", content: parts },
+        { role: "user", content: "Return only the JSON array—no commentary, no code fences. Mark missing if unconfirmed." }
+      ]
+    })
+  );
+  return extractJson(r.choices?.[0]?.message?.content || "[]", true);
+}
+
 /* ====== handler ====== */
 export default async function handler(req, res) {
   if (req.method !== "POST") return sendJson(res, 405, { error: "Use POST" });
 
-  const t0 = Date.now();
   let stage = "init";
   try {
     stage = "parse_body";
@@ -646,15 +649,16 @@ export default async function handler(req, res) {
       product_name, company_name, company_email,
       country_of_sale, languages_provided = [],
       shipping_scope, product_category,
-      label_image_data_url, // ignored now (no vision)
-      label_pdf_file,
-      tds_file,
+      label_pdf_file,          // <-- we read text from here
+      tds_file,                // <-- and here
       reference_docs_text, halal_audit,
 
       // toggles:
       return_pdf = false,
       attach_pdf = true,
-      include_halal_page = true
+      include_halal_page = true,
+
+      debug = false
     } = body || {};
 
     const fields = {
@@ -663,35 +667,12 @@ export default async function handler(req, res) {
       shipping_scope, product_category
     };
 
-    /* === TDS parse with fallback === */
+    /* === Extract text from PDFs (no OCR) === */
     stage = "parse_tds";
-    let tdsText = "";
-    if (tds_file?.base64) {
-      try {
-        const base = b64FromDataUrl(tds_file.base64);
-        if (base && base.length > 0) {
-          const buf = Buffer.from(base, "base64");
-          if ((tds_file.name || "").toLowerCase().endsWith(".pdf")) {
-            tdsText = await extractPdfText(buf);
-          } else {
-            tdsText = buf.toString("utf8");
-          }
-        }
-      } catch (e) { console.error("TDS parse failed:", e?.message || e); }
-    }
+    const tdsText = tds_file?.base64 ? await extractPdfTextFromBase64(tds_file.base64) : "";
 
-    /* === Label PDF parse with fallback (no OCR/vision) === */
     stage = "parse_label_pdf";
-    let labelPdfText = "";
-    if (label_pdf_file?.base64) {
-      try {
-        const b64 = b64FromDataUrl(label_pdf_file.base64);
-        if (b64 && b64.length > 0) {
-          const buf = Buffer.from(b64, "base64");
-          labelPdfText = await extractPdfText(buf);
-        }
-      } catch (e) { console.error("Label PDF parse failed:", e?.message || e); }
-    }
+    const labelPdfText = label_pdf_file?.base64 ? await extractPdfTextFromBase64(label_pdf_file.base64) : "";
 
     /* === blank detection === */
     stage = "check_blank";
@@ -705,8 +686,8 @@ export default async function handler(req, res) {
     stage = "ask_eu";
     const raw = await askEU({
       fields,
-      labelPdfText: labelPdfText || null,
-      tdsText: tdsText || null,
+      labelPdfText: labelPdfText || "",
+      tdsText: tdsText || "",
       extraText: reference_docs_text || ""
     });
 
@@ -763,8 +744,8 @@ export default async function handler(req, res) {
     if (halal_audit) {
       const hal = await askHalal({
         fields,
-        labelPdfText: labelPdfText || null,
-        tdsText: tdsText || null,
+        labelPdfText: labelPdfText || "",
+        tdsText: tdsText || "",
         extraText: reference_docs_text || ""
       });
       halalChecks = (Array.isArray(hal) ? hal : []).map(c => ({
@@ -809,7 +790,7 @@ export default async function handler(req, res) {
                  <p>Attached is your preliminary compliance report for <strong>${fields.product_name || "your product"}</strong>.</p>
                  <p>Overall: <strong>${report.overall_status.toUpperCase()}</strong> — Score: <strong>${report.score}/100</strong>.</p>
                  <p>Best,<br/>${APP_NAME}</p>`,
-          attachments: attach_pdf ? [{ filename, content: pdf_base64, contentType: "application/pdf" }] : []
+          attachments: [{ filename, content: pdf_base64, contentType: "application/pdf" }]
         }));
         email_status = `sent to ${recipients.length}`;
       } catch (e) {
@@ -819,7 +800,7 @@ export default async function handler(req, res) {
 
     const resp = {
       ok: true,
-      version: "v12-text-only",
+      version: "v13-text",
       model: OPENAI_MODEL,
       report,
       score: report.score,
@@ -828,7 +809,15 @@ export default async function handler(req, res) {
       pdf_error,
       email_status
     };
-    if (body.return_pdf) resp.pdf_base64 = pdf_base64;
+    if (return_pdf) resp.pdf_base64 = pdf_base64;
+
+    if (debug) {
+      resp._debug = {
+        label_len: (labelPdfText||"").length,
+        tds_len: (tdsText||"").length,
+        label_head: (labelPdfText||"").slice(0, 200)
+      };
+    }
 
     return sendJson(res, 200, resp);
   } catch (err) {
