@@ -68,18 +68,72 @@
   .basket .rowLine{display:flex;justify-content:space-between;gap:8px;align-items:center;border:1px solid #2b3a78;background:#101942;padding:8px;border-radius:10px}
   .basket .meta{font-size:12px;color:#b7c6ff}
   .pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:11px;border:1px solid #4156a8;background:#121a46}
-  .good{background:#0f3; color:#001b0a}
-  .warn{background:#ffb020;color:#231600}
-  .bad{background:#ff5a5a;color:#200707}
 
   .tabs{display:flex;gap:6px;margin:4px 0 8px}
   .tab{padding:6px 10px;border:1px solid #2b3a78;border-radius:8px;background:#0d1330;cursor:pointer;font-size:12px}
   .tab.active{background:#1a245a;border-color:#5066c7}
 
   .downloads{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+
+  /* Admin button + panel */
+  .adminBtn{position:fixed;top:14px;left:14px;z-index:50;background:#0e1430;border:1px solid #4156a8;color:#cfe1ff;font-weight:800;border-radius:10px;padding:8px 10px;cursor:pointer}
+  .adminBtn:hover{box-shadow:0 0 0 2px rgba(139,178,255,.2)}
+  .overlay{position:fixed;inset:0;background:rgba(5,8,16,.65);display:none;align-items:center;justify-content:center;z-index:60}
+  .panel{width:min(860px,92vw);max-height:86vh;overflow:auto;background:#0f1530;border:1px solid #32438e;border-radius:14px;padding:14px}
+  .panel h2{margin:0 0 10px 0;font-size:16px}
+  .panel .row{margin-top:8px}
+  .serverList .item{display:flex;justify-content:space-between;align-items:center;background:#0e1532;border:1px solid #2b3a78;border-radius:10px;padding:8px;margin:6px 0}
 </style>
 </head>
 <body>
+  <!-- Admin trigger -->
+  <button id="adminBtn" class="adminBtn">Admin</button>
+
+  <!-- Admin overlay/panel -->
+  <div id="adminOverlay" class="overlay">
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2>Admin · Datasets</h2>
+        <button class="btn small ghost" id="adminClose">Close</button>
+      </div>
+
+      <div id="adminAuth" class="card" style="margin-top:10px">
+        <h3>Authenticate</h3>
+        <div class="row two">
+          <div>
+            <label>Password</label>
+            <input id="adminPass" type="password" placeholder="Enter admin password">
+          </div>
+          <div style="display:flex;align-items:flex-end">
+            <button class="btn" id="adminLogin">Unlock</button>
+          </div>
+        </div>
+        <div class="help">Tip: we’ll remember this in this tab until you close it.</div>
+      </div>
+
+      <div id="adminBody" style="display:none">
+        <div class="card" style="margin-top:10px">
+          <h3>Quick Export (local Dataset Basket)</h3>
+          <div class="toolbar" style="justify-content:flex-start">
+            <button class="btn small" id="adExpAll">Export CSV (All)</button>
+            <button class="btn small ghost" id="adExpTrain">Export CSV (Train)</button>
+            <button class="btn small ghost" id="adExpTest">Export CSV (Test)</button>
+            <button class="btn small ghost" id="adExpVal">Export CSV (Validation)</button>
+          </div>
+          <div class="help" id="basketStats">…</div>
+        </div>
+
+        <div class="card" style="margin-top:10px">
+          <h3>Server datasets</h3>
+          <div class="help">Lists CSVs that your VM exposes at <code>/admin/list</code>. Click to download via authenticated fetch.</div>
+          <div id="serverList" class="serverList">
+            <div class="help">Loading…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="wrap">
     <header>
       <div class="dot"></div>
@@ -241,7 +295,6 @@
           <div style="font-weight:700">I consent to processing & secure storage</div>
           <div class="help">
             Data controller: Nexodify. Retention: until deleted on request (your moat). No sale to third parties.
-            You can delete your run data via request; a “Delete after download” toggle can be added later if required.
           </div>
         </div>
       </div>
@@ -289,6 +342,8 @@
 <script>
 /* ------------------ Config ------------------ */
 const API_BASE = "https://api.nexodify.com"; // VM endpoint
+const ADMIN_TITLE = "Nexodify Admin";
+const ADMIN_PASS_HINT = "ADMIN PASS"; // you can change later
 
 /* ------------------ Helpers ------------------ */
 const $ = (id)=>document.getElementById(id);
@@ -320,6 +375,12 @@ function setTab(part){
   basketTab = part;
   document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active", t.dataset.part===part));
   renderBasket();
+}
+
+function basketCounts(){
+  const c = {all:basket.length, train:0, test:0, val:0};
+  for(const b of basket){ if(c[b.part]!=null) c[b.part]++; }
+  return c;
 }
 
 function renderBasket(){
@@ -357,9 +418,8 @@ document.addEventListener("click", (e)=>{
 });
 renderBasket();
 
-function exportCsv(currentOnly=false){
+function exportCsvFrom(list){
   const rows = [["timestamp","product_name","company_name","country_of_sale","check_title","prev_status","prev_severity","action","new_text","rationale","mandatory","sources","overall_score","halal","partition"]];
-  const list = currentOnly && basketTab!=="all" ? basket.filter(b=>b.part===basketTab) : basket;
   for(const b of list){
     rows.push([
       new Date(b.ts||Date.now()).toISOString(),
@@ -375,16 +435,109 @@ function exportCsv(currentOnly=false){
   const blob = new Blob([csv], {type:"text/csv"});
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url; a.download = `nexodify_dataset_${currentOnly?basketTab:"all"}_${Date.now()}.csv`;
+  a.href = url; a.download = `nexodify_dataset_${Date.now()}.csv`;
   document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+
+function exportCsv(currentOnly=false){
+  const list = currentOnly && basketTab!=="all" ? basket.filter(b=>b.part===basketTab) : basket;
+  exportCsvFrom(list);
 }
 $("exportCsvBtn").onclick = ()=>exportCsv(true);
 $("exportAllCsvBtn").onclick = ()=>exportCsv(false);
 $("clearBasketBtn").onclick = ()=>{ if(confirm("Clear all items from Dataset Basket?")) clearBasket(); };
 
-/* ------------------ UI rendering (checks with actions) ------------------ */
-function checkLane(c){ return c.status==="ok"?"ok":(c.severity==="high"?"bad":"med"); }
+/* ------------------ Admin Panel ------------------ */
+const adminBtn = $("adminBtn");
+const adminOverlay = $("adminOverlay");
+const adminClose = $("adminClose");
+const adminAuth = $("adminAuth");
+const adminBody = $("adminBody");
+const adminPassInput = $("adminPass");
+const adminLogin = $("adminLogin");
+const serverList = $("serverList");
+const basketStats = $("basketStats");
 
+function openAdmin(){ adminOverlay.style.display="flex"; updateAdminState(); }
+function closeAdmin(){ adminOverlay.style.display="none"; }
+
+adminBtn.onclick = openAdmin;
+adminClose.onclick = closeAdmin;
+
+function updateAdminState(){
+  const k = sessionStorage.getItem("nexo_admin_k") || "";
+  const ok = !!k;
+  adminAuth.style.display = ok ? "none" : "block";
+  adminBody.style.display = ok ? "block" : "none";
+  if(ok){ refreshServerList(); }
+  const c = basketCounts();
+  basketStats.textContent = `Local Dataset Basket — All: ${c.all}, Train: ${c.train}, Test: ${c.test}, Val: ${c.val}`;
+}
+adminLogin.onclick = ()=>{
+  const v = adminPassInput.value.trim();
+  if(!v){ alert("Enter password."); return; }
+  sessionStorage.setItem("nexo_admin_k", v);
+  updateAdminState();
+};
+window.addEventListener("keydown",(e)=>{ if(e.key==="Escape" && adminOverlay.style.display==="flex") closeAdmin(); });
+
+// quick exports in admin
+$("adExpAll").onclick = ()=> exportCsvFrom(basket);
+$("adExpTrain").onclick = ()=> exportCsvFrom(basket.filter(b=>b.part==="train"));
+$("adExpTest").onclick = ()=> exportCsvFrom(basket.filter(b=>b.part==="test"));
+$("adExpVal").onclick = ()=> exportCsvFrom(basket.filter(b=>b.part==="val"));
+
+async function refreshServerList(){
+  serverList.innerHTML = `<div class="help">Loading…</div>`;
+  const key = sessionStorage.getItem("nexo_admin_k") || "";
+  try{
+    const r = await fetch(`${API_BASE}/admin/list`, {
+      headers: { "x-admin-key": key }
+    });
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json(); // expect: { files: [{name,size,ts}, ...] }
+    const files = Array.isArray(data.files)?data.files:[];
+    if(!files.length){
+      serverList.innerHTML = `<div class="help">No server datasets yet.</div>`;
+      return;
+    }
+    serverList.innerHTML = files.map(f => `
+      <div class="item">
+        <div>
+          <div><b>${esc(f.name)}</b></div>
+          <div class="help">${(f.size?fmtKB(f.size):"?")} KB • ${f.ts ? new Date(f.ts).toLocaleString() : ""}</div>
+        </div>
+        <button class="btn small" data-dl="${esc(f.name)}">Download</button>
+      </div>
+    `).join("");
+
+    // wire downloads (authenticated fetch → blob → download)
+    serverList.querySelectorAll("[data-dl]").forEach(btn=>{
+      btn.onclick = async ()=>{
+        const fname = btn.dataset.dl;
+        btn.disabled = true; btn.textContent = "Downloading…";
+        try{
+          const rr = await fetch(`${API_BASE}/admin/download?file=${encodeURIComponent(fname)}`, {
+            method: "POST",
+            headers: { "x-admin-key": key }
+          });
+          if(!rr.ok) throw new Error(`HTTP ${rr.status}`);
+          const blob = await rr.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url; a.download = fname; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+        }catch(e){ alert("Download failed: "+(e.message||e)); }
+        finally{ btn.disabled = false; btn.textContent = "Download"; }
+      };
+    });
+
+  }catch(e){
+    serverList.innerHTML = `<div class="help">Server list not available yet. (${esc(e.message||e)})</div>`;
+  }
+}
+
+/* ------------------ Checks rendering ------------------ */
+function checkLane(c){ return c.status==="ok"?"ok":(c.severity==="high"?"bad":"med"); }
 function renderCheck(c, context){
   const lane = checkLane(c);
   const id = uid();
@@ -424,7 +577,6 @@ function renderCheck(c, context){
     </div>
   `;
 }
-
 function wireCheckActions(container, checks, context){
   container.addEventListener("click", (e)=>{
     const act = e.target?.dataset?.act; if(!act) return;
@@ -438,7 +590,6 @@ function wireCheckActions(container, checks, context){
       edit.style.display = "block";
       edit.dataset.mode = act;
     } else if(act==="accept"){
-      // No edit; still log acceptance
       const entry = {
         ts: Date.now(),
         product_name: context.product_name, company_name: context.company_name, country_of_sale: context.country_of_sale,
@@ -554,18 +705,16 @@ goBtn.addEventListener("click", async ()=>{
     const fields = {
       product_name: productName.value.trim(),
       company_name: companyName.value.trim(),
-      company_email: companyEmail.value.trim(), // allow multi (comma/semicolon)
+      company_email: companyEmail.value.trim(),
       country_of_sale: countrySale.value.trim(),
       languages_provided: (languagesProvided.value||"").split(/[,;]\s*|\s*,\s*/).map(s=>s.trim()).filter(Boolean),
       shipping_scope: shippingScope.value,
       product_category: productCategory.value,
       halal_audit: halalToggle.checked,
-      // extra structured data
       tds_struct: tdsStruct(),
       consent: true
     };
 
-    // Files
     if(labelInput.files[0]){
       const lf = labelInput.files[0];
       const b64 = await toDataURL(lf);
@@ -592,7 +741,6 @@ goBtn.addEventListener("click", async ()=>{
     const score = data.score ?? data.report?.score ?? "-";
     const prod = data.report?.product || {};
 
-    // Summary card
     summaryCard.innerHTML = `
       <div class="chips">
         <span class="badge ${badgeCls}">${esc(overall.toUpperCase())}</span>
@@ -609,35 +757,33 @@ goBtn.addEventListener("click", async ()=>{
       ${data.report?.summary ? `<div class="pre" style="margin-top:8px">${esc(data.report.summary)}</div>` : ''}
     `;
 
-    // Checks (EU + Halal) with actions
+    // Checks with actions
     const checks = [].concat(data.report?.checks||[]).map(c=>({...c,_id:uid()}));
-    let blocks = '';
     if(checks.length){
-      const tmp = document.createElement("div");
-      tmp.innerHTML = `<div class="section"><div class="card"><h3>EU 1169/2011 Checks</h3><div class="checks" id="checks_eu"></div></div></div>`;
-      blocks += tmp.innerHTML;
-      checksWrap.innerHTML = blocks;
-      const mount = $("checks_eu");
-      mount.innerHTML = checks.map(c=>renderCheck(c, {})).join("");
-      wireCheckActions(mount, checks, {
+      const mount = document.createElement("div");
+      mount.className = "section";
+      mount.innerHTML = `<div class="card"><h3>EU 1169/2011 Checks</h3><div class="checks" id="checks_eu"></div></div>`;
+      checksWrap.appendChild(mount);
+      $("checks_eu").innerHTML = checks.map(c=>renderCheck(c, {})).join("");
+      wireCheckActions($("checks_eu"), checks, {
         product_name: fields.product_name, company_name: fields.company_name, country_of_sale: fields.country_of_sale,
         score, halal_audit: !!fields.halal_audit
       });
     }
     if(isArray(data.halal_checks) && data.halal_checks.length){
       const halal = data.halal_checks.map(c=>({...c,_id:uid()}));
-      const node = document.createElement("div");
-      node.innerHTML = `<div class="section"><div class="card"><h3>Halal Pre-Audit</h3><div class="checks" id="checks_halal"></div></div></div>`;
-      checksWrap.appendChild(node.firstChild);
-      const mountH = $("checks_halal");
-      mountH.innerHTML = halal.map(c=>renderCheck(c, {})).join("");
-      wireCheckActions(mountH, halal, {
+      const mountH = document.createElement("div");
+      mountH.className = "section";
+      mountH.innerHTML = `<div class="card"><h3>Halal Pre-Audit</h3><div class="checks" id="checks_halal"></div></div>`;
+      checksWrap.appendChild(mountH);
+      $("checks_halal").innerHTML = halal.map(c=>renderCheck(c, {})).join("");
+      wireCheckActions($("checks_halal"), halal, {
         product_name: fields.product_name, company_name: fields.company_name, country_of_sale: fields.country_of_sale,
         score, halal_audit: !!fields.halal_audit
       });
     }
 
-    // Downloads card
+    // Downloads
     const pdfReady = !!(data.pdf_len && data.pdf_len > 1000 && data.pdf_base64);
     downloadsCard.style.display = "flex";
     downloadsCard.innerHTML = `
