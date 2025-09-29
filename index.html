@@ -8,10 +8,12 @@
   :root{
     --bg:#0b1020;--ink:#eaf0ff;--muted:#a6b4da;--line:#1f2a5b;--card:#11183a;
     --chip:#1c2755;--brand:#5b84ff;--ok:#18c37d;--warn:#ffb020;--bad:#ff5a5a;
+    --accent:#8bb2ff;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif}
-  .wrap{max-width:1040px;margin:26px auto;padding:0 18px}
+  a{color:#b9c8ff}
+  .wrap{max-width:1160px;margin:26px auto;padding:0 18px}
   header{display:flex;align-items:center;gap:12px;margin-bottom:10px}
   .dot{width:18px;height:18px;border-radius:6px;background:var(--brand);box-shadow:0 0 24px rgba(91,132,255,.45)}
   h1{margin:0;font-size:24px}
@@ -19,7 +21,8 @@
   .subtag{color:#7e8dbd;font-size:12px;margin-top:2px}
 
   .grid{display:grid;gap:14px}
-  @media (min-width:980px){.grid.two{grid-template-columns:1fr 1fr}}
+  @media (min-width:1100px){.grid.two{grid-template-columns:1.1fr 1fr}}
+  @media (min-width:1100px){.grid.three{grid-template-columns:1fr 1fr 1fr}}
 
   .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
   .card h3{margin:0 0 10px 0;font-size:14px;letter-spacing:.2px;color:#d6defb}
@@ -29,15 +32,18 @@
   textarea{resize:vertical}
   .row{display:grid;gap:10px}
   .two{grid-template-columns:1fr 1fr}
+  .three{grid-template-columns:1fr 1fr 1fr}
 
   .drop{
     border:1px dashed #3950a3;background:#0e1430;border-radius:12px;
-    padding:14px;text-align:center;color:#c7d3ff
+    padding:14px;text-align:center;color:#c7d3ff;cursor:pointer
   }
   .help{color:var(--muted);font-size:12px;margin-top:6px}
-  .toolbar{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
-  .btn{background:var(--brand);border:0;color:#fff;font-weight:800;border-radius:10px;padding:12px 16px;cursor:pointer}
+  .toolbar{display:flex;gap:10px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
+  .btn{background:var(--brand);border:0;color:#fff;font-weight:800;border-radius:10px;padding:10px 14px;cursor:pointer}
   .btn.secondary{background:#2b3a78}
+  .btn.ghost{background:transparent;border:1px solid #2b3a78;color:#dbe4ff}
+  .btn.small{padding:6px 10px;font-size:12px;border-radius:8px}
   .btn[disabled]{opacity:.6;pointer-events:none}
 
   .chips{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}
@@ -49,13 +55,27 @@
 
   .section{margin-top:14px}
   .pre{white-space:pre-wrap;background:#0e1532;border:1px solid #2b3a78;border-radius:10px;padding:10px;color:#d6defb}
-  .checks{padding-top:4px}
-  .check{background:#0e1532;border:1px solid #2b3a78;border-left:4px solid #2b3a78;border-radius:10px;padding:10px;margin:8px 0}
+
+  .check{background:#0e1532;border:1px solid #2b3a78;border-left:4px solid #2b3a78;border-radius:12px;padding:10px;margin:10px 0}
   .check.ok{border-left-color:var(--ok)}
   .check.med{border-left-color:#ffb020}
   .check.bad{border-left-color:#ff5a5a}
-  .check .ttl{font-weight:800}
-  .hint{color:var(--muted);font-size:12px}
+  .check .ttl{font-weight:800;display:flex;align-items:center;gap:8px}
+  .check .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .check .edit{margin-top:8px;padding:8px;border:1px dashed #4156a8;border-radius:10px;background:#0f1738}
+
+  .basket{display:flex;flex-direction:column;gap:10px}
+  .basket .rowLine{display:flex;justify-content:space-between;gap:8px;align-items:center;border:1px solid #2b3a78;background:#101942;padding:8px;border-radius:10px}
+  .basket .meta{font-size:12px;color:#b7c6ff}
+  .pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:11px;border:1px solid #4156a8;background:#121a46}
+  .good{background:#0f3; color:#001b0a}
+  .warn{background:#ffb020;color:#231600}
+  .bad{background:#ff5a5a;color:#200707}
+
+  .tabs{display:flex;gap:6px;margin:4px 0 8px}
+  .tab{padding:6px 10px;border:1px solid #2b3a78;border-radius:8px;background:#0d1330;cursor:pointer;font-size:12px}
+  .tab.active{background:#1a245a;border-color:#5066c7}
+
   .downloads{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 </style>
 </head>
@@ -66,7 +86,7 @@
       <div>
         <h1>Nexodify’s Label Compliance Preflight</h1>
         <div class="tagline">Cited. Actionable. Production-ready.</div>
-        <div class="subtag">EU 1169/2011 preflight • optional Halal pre-audit • PDF report</div>
+        <div class="subtag">EU 1169/2011 preflight • optional Halal pre-audit • PDF report • dataset capture</div>
       </div>
     </header>
 
@@ -137,36 +157,94 @@
       </div>
 
       <div class="card">
-        <h3>Optional TDS (.pdf, .docx, .md, .txt)</h3>
+        <h3>Optional TDS file (.pdf, .docx, .md, .txt)</h3>
         <div id="tdsDrop" class="drop">Drag & drop or click to attach</div>
         <input id="tds_file" type="file" accept="application/pdf,.doc,.docx,.md,.txt" style="display:none">
         <div id="tdsMeta" class="help">No file chosen.</div>
       </div>
     </div>
 
-    <!-- Extra rules -->
+    <!-- Structured TDS (key particulars) -->
     <div class="card" style="margin-top:14px">
-      <h3>Extra rules / buyer requirements (optional)</h3>
-      <textarea id="reference_docs_text" rows="5" placeholder="Paste internal spec, buyer rules, claims substantiation..."></textarea>
-      <div class="help">If omitted, the engine uses EU baseline and our internal database.</div>
+      <h3>Structured TDS (key particulars)</h3>
+      <div class="help">These fields help the engine tally claims vs. label. You can paste quick notes; they will be bundled as “tds_struct”.</div>
+      <div class="row two" style="margin-top:8px">
+        <div>
+          <label>Composition / Ingredients (descending)</label>
+          <textarea id="tds_composition" rows="3" placeholder="Chickpea flour (60%), water, salt…"></textarea>
+        </div>
+        <div>
+          <label>Annex II Allergens (bolded in label)</label>
+          <textarea id="tds_allergens" rows="3" placeholder="Gluten; Soy; Milk; Tree nuts…"></textarea>
+        </div>
+      </div>
+      <div class="row three" style="margin-top:8px">
+        <div>
+          <label>QUID drivers (% near name or in list)</label>
+          <textarea id="tds_quid" rows="3" placeholder="Chickpeas 60%; Cocoa 35%; Fruit 12%…"></textarea>
+        </div>
+        <div>
+          <label>Nutrition (per 100 g/ml)</label>
+          <textarea id="tds_nutrition" rows="3" placeholder="Energy 1500 kJ / 360 kcal; Fat 2.0 g…"></textarea>
+        </div>
+        <div>
+          <label>Net quantity</label>
+          <textarea id="tds_netqty" rows="3" placeholder="500 g; 1 L; ℮ symbol if used"></textarea>
+        </div>
+      </div>
+      <div class="row three" style="margin-top:8px">
+        <div>
+          <label>Storage / Use conditions</label>
+          <textarea id="tds_storage" rows="3" placeholder="Keep in a cool, dry place. Refrigerate after opening…"></textarea>
+        </div>
+        <div>
+          <label>FBO name & EU address</label>
+          <textarea id="tds_fbo" rows="3" placeholder="ACME Foods S.r.l., Via Roma 10, 20100 Milano, IT"></textarea>
+        </div>
+        <div>
+          <label>Date marking</label>
+          <textarea id="tds_date" rows="3" placeholder="Best before end: MM/YYYY; Use by: DD/MM/YYYY"></textarea>
+        </div>
+      </div>
+      <div class="row three" style="margin-top:8px">
+        <div>
+          <label>Claims (nutrition/health/marketing)</label>
+          <textarea id="tds_claims" rows="3" placeholder="High in protein; No added sugar; Source of fiber…"></textarea>
+        </div>
+        <div>
+          <label>Country of origin / Primary ingredient origin</label>
+          <textarea id="tds_origin" rows="3" placeholder="Origin: Italy; Primary ingredient: EU…"></textarea>
+        </div>
+        <div>
+          <label>Additives & processing aids</label>
+          <textarea id="tds_additives" rows="3" placeholder="E471 (plant), E322 (sunflower lecithin), enzymes…"></textarea>
+        </div>
+      </div>
+      <div class="row two" style="margin-top:8px">
+        <div>
+          <label>Certifications / Logos (e.g., Halal, Organic)</label>
+          <textarea id="tds_certs" rows="3" placeholder="Halal by X Certifier; EU Organic; Gluten-Free…"></textarea>
+        </div>
+        <div>
+          <label>Notes / Buyer rules / Evidence</label>
+          <textarea id="reference_docs_text" rows="3" placeholder="Paste internal spec, buyer rules, emails, supplier letters, SDS, etc."></textarea>
+        </div>
+      </div>
     </div>
 
     <!-- Options -->
     <div class="card" style="margin-top:14px">
-      <h3>Options</h3>
-
-      <!-- Consent -->
-      <div class="row" style="grid-template-columns:auto 1fr;align-items:center;margin-top:10px">
+      <h3>Options & Consent</h3>
+      <div class="row" style="grid-template-columns:auto 1fr;align-items:center;margin-top:6px">
         <input id="consent_chk" type="checkbox" style="width:18px;height:18px;margin:0 8px 0 4px">
         <div>
           <div style="font-weight:700">I consent to processing & secure storage</div>
           <div class="help">
-            I agree that Nexodify may process and securely store my files and metadata for quality improvement and auditability.
-            <br/>Data controller: Nexodify. Retention: kept indefinitely (delete on request). No sale to third parties.
+            Data controller: Nexodify. Retention: until deleted on request (your moat). No sale to third parties.
+            You can delete your run data via request; a “Delete after download” toggle can be added later if required.
           </div>
         </div>
       </div>
-
       <div class="row" style="grid-template-columns:auto 1fr;align-items:center">
         <input id="halal_audit" type="checkbox" style="width:18px;height:18px;margin:0 8px 0 4px">
         <div>
@@ -175,16 +253,36 @@
         </div>
       </div>
       <div class="toolbar">
-        <button class="btn secondary" id="resetBtn" type="button">Reset</button>
+        <button class="btn ghost" id="clearBasketBtn" type="button">Clear Dataset Basket</button>
+        <button class="btn secondary" id="resetBtn" type="button">Reset Form</button>
         <button class="btn" id="goBtn">Generate Preflight</button>
       </div>
     </div>
 
-    <!-- Results -->
-    <div id="results" style="margin-top:16px;display:none">
-      <div class="card" id="summaryCard"></div>
-      <div id="checksWrap"></div>
-      <div class="card downloads" id="downloadsCard" style="display:none"></div>
+    <!-- Results + Dataset Basket -->
+    <div class="grid two" style="margin-top:16px">
+      <div>
+        <div id="results" style="display:none">
+          <div class="card" id="summaryCard"></div>
+          <div id="checksWrap"></div>
+          <div class="card downloads" id="downloadsCard" style="display:none"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Dataset Basket (corrections you make)</h3>
+        <div class="tabs">
+          <div class="tab active" data-part="all">All</div>
+          <div class="tab" data-part="train">Train</div>
+          <div class="tab" data-part="test">Test</div>
+          <div class="tab" data-part="val">Validation</div>
+        </div>
+        <div class="toolbar" style="justify-content:flex-start;margin-top:6px">
+          <button class="btn small" id="exportCsvBtn" title="Exports current tab">Export CSV</button>
+          <button class="btn small ghost" id="exportAllCsvBtn">Export CSV (All)</button>
+        </div>
+        <div class="basket" id="basketList"><div class="help">No corrections yet. When you Accept/Fix/Dispute a check, it will appear here.</div></div>
+      </div>
     </div>
   </div>
 
@@ -197,28 +295,177 @@ const $ = (id)=>document.getElementById(id);
 const esc = (s)=>String(s??"").replace(/[&<>]/g,c=>({ "&":"&amp;","<":"&lt;",">":"&gt;" }[c]));
 const isArray = (v)=>Array.isArray(v);
 const fmtKB = (n)=>Math.round((n||0)/1024);
+const uid = ()=>Math.random().toString(36).slice(2)+Date.now().toString(36);
 
 function overallClass(s){ s=(s||"caution").toLowerCase(); return s==="pass"?"pass":s==="fail"?"fail":"caution"; }
-
 function toDataURL(file){
   return new Promise((resolve,reject)=>{
     const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=reject; r.readAsDataURL(file);
   });
 }
 
-function renderCheck(c){
-  const lane = c.status==="ok" ? "ok" : (c.severity==="high" ? "bad" : "med");
-  return `<div class="card check ${lane}">
-    <div class="ttl">${esc(c.title||"-")} <span class="chip" style="margin-left:6px">${esc((c.status||"").toUpperCase())}${c.severity?` · ${esc(c.severity)}`:""}</span></div>
-    ${c.detail ? `<div>${esc(c.detail)}</div>` : ""}
-    ${c.status!=="ok" && c.fix ? `<div>→ <i>${esc(c.fix)}</i></div>` : ""}
-    ${isArray(c.sources)&&c.sources.length ? `<div class="hint">Sources: ${c.sources.map(esc).join("; ")}</div>` : ""}
-  </div>`;
+/* ------------------ Dataset Basket (localStorage) ------------------ */
+const LS_KEY = "nexo_basket_v1";
+let basket = JSON.parse(localStorage.getItem(LS_KEY)||"[]");
+let basketTab = "all";
+
+function saveBasket(){ localStorage.setItem(LS_KEY, JSON.stringify(basket)); renderBasket(); }
+function clearBasket(){ basket = []; saveBasket(); }
+function addToBasket(entry){
+  basket.push({ id: uid(), part: "train", ...entry });
+  saveBasket();
 }
 
-function renderChecksBlock(title, arr){
-  if(!isArray(arr)||!arr.length) return "";
-  return `<div class="section"><div class="card"><h3>${esc(title)}</h3><div class="checks">${arr.map(renderCheck).join("")}</div></div></div>`;
+function setTab(part){
+  basketTab = part;
+  document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active", t.dataset.part===part));
+  renderBasket();
+}
+
+function renderBasket(){
+  const wrap = $("basketList");
+  const list = basket.filter(b => basketTab==="all" ? true : b.part===basketTab);
+  if(!list.length){ wrap.innerHTML = `<div class="help">No items in this tab.</div>`; return; }
+  wrap.innerHTML = list.map(b => `
+    <div class="rowLine">
+      <div>
+        <div><b>${esc(b.check_title)}</b> <span class="pill">${esc(b.action)}</span> <span class="pill">${esc(b.part.toUpperCase())}</span></div>
+        <div class="meta">${esc(b.product_name||"-")} • was: ${esc(b.prev_status||"-")} / ${esc(b.prev_severity||"-")} • rationale: ${esc(b.rationale||"-")}</div>
+        ${b.new_text ? `<div class="meta">new text: ${esc(b.new_text)}</div>` : ""}
+      </div>
+      <div style="display:flex;gap:6px">
+        <select data-id="${b.id}" class="partSel" style="background:#0d1330;border:1px solid #2b3a78;color:#eaf0ff;border-radius:8px;padding:6px">
+          <option ${b.part==="train"?"selected":""} value="train">Train</option>
+          <option ${b.part==="test"?"selected":""} value="test">Test</option>
+          <option ${b.part==="val"?"selected":""} value="val">Validation</option>
+        </select>
+        <button class="btn small ghost delBtn" data-id="${b.id}">Delete</button>
+      </div>
+    </div>
+  `).join("");
+
+  // wire deletes & partition changes
+  wrap.querySelectorAll(".delBtn").forEach(btn=>{
+    btn.onclick = ()=>{ basket = basket.filter(x => x.id !== btn.dataset.id); saveBasket(); };
+  });
+  wrap.querySelectorAll(".partSel").forEach(sel=>{
+    sel.onchange = ()=>{ const it = basket.find(x=>x.id===sel.dataset.id); if(it){ it.part = sel.value; saveBasket(); } };
+  });
+}
+document.addEventListener("click", (e)=>{
+  if(e.target.classList.contains("tab")) setTab(e.target.dataset.part);
+});
+renderBasket();
+
+function exportCsv(currentOnly=false){
+  const rows = [["timestamp","product_name","company_name","country_of_sale","check_title","prev_status","prev_severity","action","new_text","rationale","mandatory","sources","overall_score","halal","partition"]];
+  const list = currentOnly && basketTab!=="all" ? basket.filter(b=>b.part===basketTab) : basket;
+  for(const b of list){
+    rows.push([
+      new Date(b.ts||Date.now()).toISOString(),
+      b.product_name||"", b.company_name||"", b.country_of_sale||"",
+      b.check_title||"", b.prev_status||"", b.prev_severity||"",
+      b.action||"", (b.new_text||"").replace(/\n/g," "),
+      (b.rationale||"").replace(/\n/g," "),
+      String(b.mandatory ?? ""), (Array.isArray(b.sources)?b.sources.join("|"):""),
+      String(b.overall_score ?? ""), String(b.halal ?? ""), b.part||""
+    ]);
+  }
+  const csv = rows.map(r=>r.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(",")).join("\n");
+  const blob = new Blob([csv], {type:"text/csv"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `nexodify_dataset_${currentOnly?basketTab:"all"}_${Date.now()}.csv`;
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+$("exportCsvBtn").onclick = ()=>exportCsv(true);
+$("exportAllCsvBtn").onclick = ()=>exportCsv(false);
+$("clearBasketBtn").onclick = ()=>{ if(confirm("Clear all items from Dataset Basket?")) clearBasket(); };
+
+/* ------------------ UI rendering (checks with actions) ------------------ */
+function checkLane(c){ return c.status==="ok"?"ok":(c.severity==="high"?"bad":"med"); }
+
+function renderCheck(c, context){
+  const lane = checkLane(c);
+  const id = uid();
+  const srcs = (isArray(c.sources)&&c.sources.length) ? `<div class="hint">Sources: ${c.sources.map(esc).join("; ")}</div>` : "";
+  const fix = (c.status!=="ok" && c.fix) ? `<div>→ <i>${esc(c.fix)}</i></div>` : "";
+  const detail = c.detail ? `<div>${esc(c.detail)}</div>` : "";
+
+  return `
+    <div class="card check ${lane}" id="chk_${id}">
+      <div class="ttl">${esc(c.title||"-")}
+        <span class="chip">${esc((c.status||"").toUpperCase())}${c.severity?` · ${esc(c.severity)}`:""}</span>
+        ${c.mandatory===false ? `<span class="chip">Optional</span>` : ""}
+      </div>
+      ${detail}${fix}${srcs}
+      <div class="actions">
+        <button class="btn small" data-act="accept" data-id="${id}">Accept</button>
+        <button class="btn small secondary" data-act="fix" data-id="${id}">Fix / Edit</button>
+        <button class="btn small ghost" data-act="dispute" data-id="${id}">Dispute</button>
+        <button class="btn small ghost" data-act="na" data-id="${id}">Mark N/A</button>
+      </div>
+      <div class="edit" id="edit_${id}" style="display:none">
+        <div class="row two">
+          <div>
+            <label>Proposed corrected text</label>
+            <textarea rows="3" id="txt_${id}" placeholder="Write the corrected wording or the precise fix you will implement…"></textarea>
+          </div>
+          <div>
+            <label>Short rationale / evidence</label>
+            <textarea rows="3" id="why_${id}" placeholder="E.g., Supplier letter confirms plant E471; QUID should be 60%; Claim removed…"></textarea>
+          </div>
+        </div>
+        <div class="toolbar" style="justify-content:flex-start">
+          <button class="btn small" data-act="save" data-id="${id}">Save Correction to Basket</button>
+          <button class="btn small ghost" data-act="cancel" data-id="${id}">Cancel</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function wireCheckActions(container, checks, context){
+  container.addEventListener("click", (e)=>{
+    const act = e.target?.dataset?.act; if(!act) return;
+    const id = e.target.dataset.id;
+    const host = document.getElementById("chk_"+id);
+    const edit = document.getElementById("edit_"+id);
+    const chkTitle = host.querySelector(".ttl").childNodes[0].nodeValue.trim();
+    const c = checks.find(x=> (x._id||"") === id || (x.title||"")===chkTitle) || {};
+
+    if(act==="fix" || act==="dispute" || act==="na"){
+      edit.style.display = "block";
+      edit.dataset.mode = act;
+    } else if(act==="accept"){
+      // No edit; still log acceptance
+      const entry = {
+        ts: Date.now(),
+        product_name: context.product_name, company_name: context.company_name, country_of_sale: context.country_of_sale,
+        overall_score: context.score, halal: context.halal_audit,
+        check_title: chkTitle, prev_status: c.status, prev_severity: c.severity, action: "accept",
+        new_text: "", rationale: "Accepted as is.", mandatory: c.mandatory, sources: c.sources||[]
+      };
+      addToBasket(entry);
+      host.style.outline = "2px solid #236b4a";
+    } else if(act==="save"){
+      const mode = edit.dataset.mode || "fix";
+      const newText = document.getElementById("txt_"+id).value.trim();
+      const why = document.getElementById("why_"+id).value.trim();
+      const entry = {
+        ts: Date.now(),
+        product_name: context.product_name, company_name: context.company_name, country_of_sale: context.country_of_sale,
+        overall_score: context.score, halal: context.halal_audit,
+        check_title: chkTitle, prev_status: c.status, prev_severity: c.severity,
+        action: mode, new_text: newText, rationale: why, mandatory: c.mandatory, sources: c.sources||[]
+      };
+      addToBasket(entry);
+      edit.style.display = "none";
+      host.style.outline = "2px solid #5066c7";
+    } else if(act==="cancel"){
+      edit.style.display = "none";
+    }
+  }, { once:false });
 }
 
 /* ------------------ Form wiring ------------------ */
@@ -235,9 +482,27 @@ const labelDrop = $("labelDrop");
 const tdsDrop = $("tdsDrop");
 const labelMeta = $("labelMeta");
 const tdsMeta = $("tdsMeta");
-const extraRules = $("reference_docs_text");
 const halalToggle = $("halal_audit");
 const consentChk = $("consent_chk");
+
+// structured TDS fields
+function tdsStruct(){
+  return {
+    composition: $("tds_composition").value.trim(),
+    allergens: $("tds_allergens").value.trim(),
+    quid: $("tds_quid").value.trim(),
+    nutrition: $("tds_nutrition").value.trim(),
+    netqty: $("tds_netqty").value.trim(),
+    storage: $("tds_storage").value.trim(),
+    fbo: $("tds_fbo").value.trim(),
+    date: $("tds_date").value.trim(),
+    claims: $("tds_claims").value.trim(),
+    origin: $("tds_origin").value.trim(),
+    additives: $("tds_additives").value.trim(),
+    certs: $("tds_certs").value.trim(),
+    notes: $("reference_docs_text").value.trim()
+  };
+}
 
 const goBtn = $("goBtn");
 const resetBtn = $("resetBtn");
@@ -255,7 +520,7 @@ function wireDrop(zone,input,meta){
   zone.addEventListener("click",()=>input.click());
   zone.addEventListener("dragover",e=>{e.preventDefault(); zone.style.borderColor="#6f90ff";});
   zone.addEventListener("dragleave",()=>zone.style.borderColor="#3950a3");
-  zone.addEventListener("drop",e=>{
+  zone.addEventListener("drop",async e=>{
     e.preventDefault(); zone.style.borderColor="#3950a3";
     const f=e.dataTransfer.files?.[0]; if(!f) return;
     input.files = e.dataTransfer.files; setMeta(f);
@@ -268,7 +533,8 @@ wireDrop(tdsDrop,tdsInput,tdsMeta);
 /* Reset */
 function resetAll(){
   [productName, companyName, companyEmail, countrySale, languagesProvided].forEach(el=>el.value="");
-  productCategory.selectedIndex = 0; shippingScope.selectedIndex=0; halalToggle.checked=false; extraRules.value="";
+  productCategory.selectedIndex = 0; shippingScope.selectedIndex=0; halalToggle.checked=false;
+  ["tds_composition","tds_allergens","tds_quid","tds_nutrition","tds_netqty","tds_storage","tds_fbo","tds_date","tds_claims","tds_origin","tds_additives","tds_certs","reference_docs_text"].forEach(id=>$(id).value="");
   consentChk.checked = false;
   labelInput.value=""; tdsInput.value=""; labelMeta.textContent="No file chosen."; tdsMeta.textContent="No file chosen.";
   results.style.display="none"; summaryCard.innerHTML=""; checksWrap.innerHTML=""; downloadsCard.style.display="none"; downloadsCard.innerHTML="";
@@ -279,11 +545,7 @@ resetBtn.addEventListener("click", resetAll);
 goBtn.addEventListener("click", async ()=>{
   try{
     setLoading(true);
-    if (!consentChk.checked) {
-      setLoading(false);
-      alert("Please tick consent to proceed.");
-      return;
-    }
+    if (!consentChk.checked) { setLoading(false); return alert("Please tick consent to proceed."); }
 
     results.style.display="block";
     summaryCard.innerHTML = '<div class="pre">Running…</div>';
@@ -292,15 +554,18 @@ goBtn.addEventListener("click", async ()=>{
     const fields = {
       product_name: productName.value.trim(),
       company_name: companyName.value.trim(),
-      company_email: companyEmail.value.trim(), // allow multi (comma/semicolon) – server splits
+      company_email: companyEmail.value.trim(), // allow multi (comma/semicolon)
       country_of_sale: countrySale.value.trim(),
-      languages_provided: (languagesProvided.value||"").split(/[,;]\s*|,\s*|\s*,\s*/).map(s=>s.trim()).filter(Boolean),
+      languages_provided: (languagesProvided.value||"").split(/[,;]\s*|\s*,\s*/).map(s=>s.trim()).filter(Boolean),
       shipping_scope: shippingScope.value,
       product_category: productCategory.value,
-      reference_docs_text: extraRules.value,
-      halal_audit: halalToggle.checked
+      halal_audit: halalToggle.checked,
+      // extra structured data
+      tds_struct: tdsStruct(),
+      consent: true
     };
 
+    // Files
     if(labelInput.files[0]){
       const lf = labelInput.files[0];
       const b64 = await toDataURL(lf);
@@ -311,6 +576,9 @@ goBtn.addEventListener("click", async ()=>{
       const tf = tdsInput.files[0];
       fields.tds_file = { name: tf.name, base64: await toDataURL(tf) };
     }
+
+    // send current basket (optional for learning)
+    fields.user_corrections = basket;
 
     const resp = await fetch(`${API_BASE}/api/check-label`, {
       method:"POST",
@@ -341,13 +609,33 @@ goBtn.addEventListener("click", async ()=>{
       ${data.report?.summary ? `<div class="pre" style="margin-top:8px">${esc(data.report.summary)}</div>` : ''}
     `;
 
-    // Checks (EU + Halal)
+    // Checks (EU + Halal) with actions
+    const checks = [].concat(data.report?.checks||[]).map(c=>({...c,_id:uid()}));
     let blocks = '';
-    blocks += renderChecksBlock("EU 1169/2011 Checks", data.report?.checks);
-    if(isArray(data.halal_checks) && data.halal_checks.length){
-      blocks += renderChecksBlock("Halal Pre-Audit", data.halal_checks);
+    if(checks.length){
+      const tmp = document.createElement("div");
+      tmp.innerHTML = `<div class="section"><div class="card"><h3>EU 1169/2011 Checks</h3><div class="checks" id="checks_eu"></div></div></div>`;
+      blocks += tmp.innerHTML;
+      checksWrap.innerHTML = blocks;
+      const mount = $("checks_eu");
+      mount.innerHTML = checks.map(c=>renderCheck(c, {})).join("");
+      wireCheckActions(mount, checks, {
+        product_name: fields.product_name, company_name: fields.company_name, country_of_sale: fields.country_of_sale,
+        score, halal_audit: !!fields.halal_audit
+      });
     }
-    checksWrap.innerHTML = blocks;
+    if(isArray(data.halal_checks) && data.halal_checks.length){
+      const halal = data.halal_checks.map(c=>({...c,_id:uid()}));
+      const node = document.createElement("div");
+      node.innerHTML = `<div class="section"><div class="card"><h3>Halal Pre-Audit</h3><div class="checks" id="checks_halal"></div></div></div>`;
+      checksWrap.appendChild(node.firstChild);
+      const mountH = $("checks_halal");
+      mountH.innerHTML = halal.map(c=>renderCheck(c, {})).join("");
+      wireCheckActions(mountH, halal, {
+        product_name: fields.product_name, company_name: fields.company_name, country_of_sale: fields.country_of_sale,
+        score, halal_audit: !!fields.halal_audit
+      });
+    }
 
     // Downloads card
     const pdfReady = !!(data.pdf_len && data.pdf_len > 1000 && data.pdf_base64);
