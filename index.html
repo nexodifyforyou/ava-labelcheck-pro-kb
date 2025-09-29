@@ -154,6 +154,19 @@
     <!-- Options -->
     <div class="card" style="margin-top:14px">
       <h3>Options</h3>
+
+      <!-- Consent -->
+      <div class="row" style="grid-template-columns:auto 1fr;align-items:center;margin-top:10px">
+        <input id="consent_chk" type="checkbox" style="width:18px;height:18px;margin:0 8px 0 4px">
+        <div>
+          <div style="font-weight:700">I consent to processing & secure storage</div>
+          <div class="help">
+            I agree that Nexodify may process and securely store my files and metadata for quality improvement and auditability.
+            <br/>Data controller: Nexodify. Retention: kept indefinitely (delete on request). No sale to third parties.
+          </div>
+        </div>
+      </div>
+
       <div class="row" style="grid-template-columns:auto 1fr;align-items:center">
         <input id="halal_audit" type="checkbox" style="width:18px;height:18px;margin:0 8px 0 4px">
         <div>
@@ -176,6 +189,9 @@
   </div>
 
 <script>
+/* ------------------ Config ------------------ */
+const API_BASE = "https://api.nexodify.com"; // VM endpoint
+
 /* ------------------ Helpers ------------------ */
 const $ = (id)=>document.getElementById(id);
 const esc = (s)=>String(s??"").replace(/[&<>]/g,c=>({ "&":"&amp;","<":"&lt;",">":"&gt;" }[c]));
@@ -221,6 +237,7 @@ const labelMeta = $("labelMeta");
 const tdsMeta = $("tdsMeta");
 const extraRules = $("reference_docs_text");
 const halalToggle = $("halal_audit");
+const consentChk = $("consent_chk");
 
 const goBtn = $("goBtn");
 const resetBtn = $("resetBtn");
@@ -252,6 +269,7 @@ wireDrop(tdsDrop,tdsInput,tdsMeta);
 function resetAll(){
   [productName, companyName, companyEmail, countrySale, languagesProvided].forEach(el=>el.value="");
   productCategory.selectedIndex = 0; shippingScope.selectedIndex=0; halalToggle.checked=false; extraRules.value="";
+  consentChk.checked = false;
   labelInput.value=""; tdsInput.value=""; labelMeta.textContent="No file chosen."; tdsMeta.textContent="No file chosen.";
   results.style.display="none"; summaryCard.innerHTML=""; checksWrap.innerHTML=""; downloadsCard.style.display="none"; downloadsCard.innerHTML="";
 }
@@ -261,6 +279,12 @@ resetBtn.addEventListener("click", resetAll);
 goBtn.addEventListener("click", async ()=>{
   try{
     setLoading(true);
+    if (!consentChk.checked) {
+      setLoading(false);
+      alert("Please tick consent to proceed.");
+      return;
+    }
+
     results.style.display="block";
     summaryCard.innerHTML = '<div class="pre">Running…</div>';
     checksWrap.innerHTML=""; downloadsCard.style.display="none"; downloadsCard.innerHTML="";
@@ -288,7 +312,7 @@ goBtn.addEventListener("click", async ()=>{
       fields.tds_file = { name: tf.name, base64: await toDataURL(tf) };
     }
 
-    const resp = await fetch("/api/labelcheck", {
+    const resp = await fetch(`${API_BASE}/api/check-label`, {
       method:"POST",
       headers:{ "Content-Type":"application/json" },
       body: JSON.stringify(fields)
