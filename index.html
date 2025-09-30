@@ -8,12 +8,10 @@
   :root{
     --bg:#0b1020;--ink:#eaf0ff;--muted:#a6b4da;--line:#1f2a5b;--card:#11183a;
     --chip:#1c2755;--brand:#5b84ff;--ok:#18c37d;--warn:#ffb020;--bad:#ff5a5a;
-    --accent:#8bb2ff;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif}
-  a{color:#b9c8ff}
-  .wrap{max-width:1160px;margin:26px auto;padding:0 18px}
+  .wrap{max-width:1040px;margin:26px auto;padding:0 18px}
   header{display:flex;align-items:center;gap:12px;margin-bottom:10px}
   .dot{width:18px;height:18px;border-radius:6px;background:var(--brand);box-shadow:0 0 24px rgba(91,132,255,.45)}
   h1{margin:0;font-size:24px}
@@ -21,8 +19,7 @@
   .subtag{color:#7e8dbd;font-size:12px;margin-top:2px}
 
   .grid{display:grid;gap:14px}
-  @media (min-width:1100px){.grid.two{grid-template-columns:1.1fr 1fr}}
-  @media (min-width:1100px){.grid.three{grid-template-columns:1fr 1fr 1fr}}
+  @media (min-width:980px){.grid.two{grid-template-columns:1fr 1fr}}
 
   .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
   .card h3{margin:0 0 10px 0;font-size:14px;letter-spacing:.2px;color:#d6defb}
@@ -32,18 +29,13 @@
   textarea{resize:vertical}
   .row{display:grid;gap:10px}
   .two{grid-template-columns:1fr 1fr}
-  .three{grid-template-columns:1fr 1fr 1fr}
 
-  .drop{
-    border:1px dashed #3950a3;background:#0e1430;border-radius:12px;
-    padding:14px;text-align:center;color:#c7d3ff;cursor:pointer
-  }
+  .drop{border:1px dashed #3950a3;background:#0e1430;border-radius:12px;padding:14px;text-align:center;color:#c7d3ff}
   .help{color:var(--muted);font-size:12px;margin-top:6px}
-  .toolbar{display:flex;gap:10px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
-  .btn{background:var(--brand);border:0;color:#fff;font-weight:800;border-radius:10px;padding:10px 14px;cursor:pointer}
+  .toolbar{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
+  .btn{background:var(--brand);border:0;color:#fff;font-weight:800;border-radius:10px;padding:12px 16px;cursor:pointer}
   .btn.secondary{background:#2b3a78}
-  .btn.ghost{background:transparent;border:1px solid #2b3a78;color:#dbe4ff}
-  .btn.small{padding:6px 10px;font-size:12px;border-radius:8px}
+  .btn.ghost{background:transparent;border:1px solid #2b3a78}
   .btn[disabled]{opacity:.6;pointer-events:none}
 
   .chips{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}
@@ -55,81 +47,71 @@
 
   .section{margin-top:14px}
   .pre{white-space:pre-wrap;background:#0e1532;border:1px solid #2b3a78;border-radius:10px;padding:10px;color:#d6defb}
-
-  .check{background:#0e1532;border:1px solid #2b3a78;border-left:4px solid #2b3a78;border-radius:12px;padding:10px;margin:10px 0}
+  .checks{padding-top:4px}
+  .check{background:#0e1532;border:1px solid #2b3a78;border-left:4px solid #2b3a78;border-radius:10px;padding:10px;margin:8px 0}
   .check.ok{border-left-color:var(--ok)}
   .check.med{border-left-color:#ffb020}
   .check.bad{border-left-color:#ff5a5a}
-  .check .ttl{font-weight:800;display:flex;align-items:center;gap:8px}
-  .check .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-  .check .edit{margin-top:8px;padding:8px;border:1px dashed #4156a8;border-radius:10px;background:#0f1738}
-
-  .basket{display:flex;flex-direction:column;gap:10px}
-  .basket .rowLine{display:flex;justify-content:space-between;gap:8px;align-items:center;border:1px solid #2b3a78;background:#101942;padding:8px;border-radius:10px}
-  .basket .meta{font-size:12px;color:#b7c6ff}
-  .pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:11px;border:1px solid #4156a8;background:#121a46}
-
-  .tabs{display:flex;gap:6px;margin:4px 0 8px}
-  .tab{padding:6px 10px;border:1px solid #2b3a78;border-radius:8px;background:#0d1330;cursor:pointer;font-size:12px}
-  .tab.active{background:#1a245a;border-color:#5066c7}
-
+  .check .ttl{font-weight:800}
+  .hint{color:var(--muted);font-size:12px}
   .downloads{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 
-  /* Admin button + panel */
-  .adminBtn{position:fixed;top:14px;left:14px;z-index:50;background:#0e1430;border:1px solid #4156a8;color:#cfe1ff;font-weight:800;border-radius:10px;padding:8px 10px;cursor:pointer}
-  .adminBtn:hover{box-shadow:0 0 0 2px rgba(139,178,255,.2)}
-  .overlay{position:fixed;inset:0;background:rgba(5,8,16,.65);display:none;align-items:center;justify-content:center;z-index:60}
-  .panel{width:min(860px,92vw);max-height:86vh;overflow:auto;background:#0f1530;border:1px solid #32438e;border-radius:14px;padding:14px}
-  .panel h2{margin:0 0 10px 0;font-size:16px}
-  .panel .row{margin-top:8px}
-  .serverList .item{display:flex;justify-content:space-between;align-items:center;background:#0e1532;border:1px solid #2b3a78;border-radius:10px;padding:8px;margin:6px 0}
+  /* Admin UI */
+  .admin-button{
+    position:fixed;left:12px;top:12px;z-index:20;background:#0e1532;border:1px solid #2b3a78;color:#cfd8ff;
+    padding:8px 10px;border-radius:10px;cursor:pointer;font-weight:800
+  }
+  .admin-panel{
+    position:fixed;left:12px;top:56px;width:280px;background:#0f1530;border:1px solid #2b3a78;border-radius:12px;
+    padding:12px;z-index:20;display:none
+  }
+  .admin-row{display:grid;gap:8px;margin-top:8px}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;border:1px solid #2b3a78;color:#cfd8ff}
+  .pill.ok{background:#093; border-color:#0a7}
+  .pill.err{background:#5a0; border-color:#b50}
+
+  /* Modal */
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:50}
+  .modal > .box{background:#0f1530;border:1px solid #2b3a78;border-radius:12px;padding:16px;width:420px}
+  .row2{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:10px}
+
+  /* Dataset basket */
+  .tabbar{display:flex;gap:8px;margin:8px 0}
+  .tab{padding:6px 10px;border-radius:999px;background:#0f1530;border:1px solid #2b3a78;color:#cfd8ff;cursor:pointer}
+  .tab.active{background:var(--brand);border-color:var(--brand);color:#fff}
+  table{width:100%;border-collapse:collapse}
+  th,td{border-bottom:1px solid #2b3a78;padding:6px;font-size:12px;vertical-align:top}
+  .tagbtn{padding:2px 8px;border-radius:999px;border:1px solid #2b3a78;background:#0f1530;color:#cfd8ff;cursor:pointer}
 </style>
 </head>
 <body>
-  <!-- Admin trigger -->
-  <button id="adminBtn" class="adminBtn">Admin</button>
+  <!-- Admin button & panel -->
+  <button class="admin-button" id="adminBtn">Admin</button>
+  <div class="admin-panel" id="adminPanel">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div style="font-weight:900">Admin Panel</div>
+      <span id="adminStatus" class="pill">—</span>
+    </div>
+    <div class="admin-row">
+      <label>Date (UTC, YYYY-MM-DD)</label>
+      <input id="adminDay" placeholder="YYYY-MM-DD">
+    </div>
+    <div class="admin-row">
+      <button class="btn ghost" id="btnRuns">Download Runs CSV</button>
+      <button class="btn ghost" id="btnChecks">Download Checks CSV</button>
+      <button class="btn ghost" id="btnCorrections">Download Corrections CSV</button>
+    </div>
+  </div>
 
-  <!-- Admin overlay/panel -->
-  <div id="adminOverlay" class="overlay">
-    <div class="panel">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <h2>Admin · Datasets</h2>
-        <button class="btn small ghost" id="adminClose">Close</button>
-      </div>
-
-      <div id="adminAuth" class="card" style="margin-top:10px">
-        <h3>Authenticate</h3>
-        <div class="row two">
-          <div>
-            <label>Password</label>
-            <input id="adminPass" type="password" placeholder="Enter admin password">
-          </div>
-          <div style="display:flex;align-items:flex-end">
-            <button class="btn" id="adminLogin">Unlock</button>
-          </div>
-        </div>
-        <div class="help">Tip: we’ll remember this in this tab until you close it.</div>
-      </div>
-
-      <div id="adminBody" style="display:none">
-        <div class="card" style="margin-top:10px">
-          <h3>Quick Export (local Dataset Basket)</h3>
-          <div class="toolbar" style="justify-content:flex-start">
-            <button class="btn small" id="adExpAll">Export CSV (All)</button>
-            <button class="btn small ghost" id="adExpTrain">Export CSV (Train)</button>
-            <button class="btn small ghost" id="adExpTest">Export CSV (Test)</button>
-            <button class="btn small ghost" id="adExpVal">Export CSV (Validation)</button>
-          </div>
-          <div class="help" id="basketStats">…</div>
-        </div>
-
-        <div class="card" style="margin-top:10px">
-          <h3>Server datasets</h3>
-          <div class="help">Lists CSVs that your VM exposes at <code>/admin/list</code>. Click to download via authenticated fetch.</div>
-          <div id="serverList" class="serverList">
-            <div class="help">Loading…</div>
-          </div>
-        </div>
+  <!-- Admin passkey modal -->
+  <div class="modal" id="keyModal">
+    <div class="box">
+      <div style="font-weight:900;margin-bottom:8px">Enter Admin Passkey</div>
+      <input id="adminKeyInput" placeholder="••••••••" autocomplete="off">
+      <div id="keyMsg" class="help"></div>
+      <div class="row2">
+        <button class="btn secondary" id="cancelKey">Cancel</button>
+        <button class="btn" id="saveKey">Continue</button>
       </div>
     </div>
   </div>
@@ -140,11 +122,11 @@
       <div>
         <h1>Nexodify’s Label Compliance Preflight</h1>
         <div class="tagline">Cited. Actionable. Production-ready.</div>
-        <div class="subtag">EU 1169/2011 preflight • optional Halal pre-audit • PDF report • dataset capture</div>
+        <div class="subtag">EU 1169/2011 preflight • optional Halal pre-audit • PDF report</div>
       </div>
     </header>
 
-    <!-- Form: Product / Company -->
+    <!-- Product / Company -->
     <div class="grid two">
       <div class="card">
         <h3>Product</h3>
@@ -156,15 +138,11 @@
           <div>
             <label>Category</label>
             <select id="product_category">
-              <option>General</option>
-              <option>Confectionery</option>
-              <option>Beverage</option>
-              <option>Dairy</option>
-              <option>Meat / Fish</option>
+              <option>General</option><option>Confectionery</option><option>Beverage</option>
+              <option>Dairy</option><option>Meat / Fish</option>
             </select>
           </div>
         </div>
-
         <div class="row two" style="margin-top:8px">
           <div>
             <label>Country of sale</label>
@@ -175,13 +153,10 @@
             <input id="languages_provided" placeholder="it,en">
           </div>
         </div>
-
         <div style="margin-top:8px">
           <label>Shipping scope</label>
           <select id="shipping_scope">
-            <option>Local / Domestic</option>
-            <option>EU Single Market</option>
-            <option>Global</option>
+            <option>Local / Domestic</option><option>EU Single Market</option><option>Global</option>
           </select>
         </div>
       </div>
@@ -211,7 +186,7 @@
       </div>
 
       <div class="card">
-        <h3>Optional TDS file (.pdf, .docx, .md, .txt)</h3>
+        <h3>Optional TDS (.pdf, .docx, .md, .txt)</h3>
         <div id="tdsDrop" class="drop">Drag & drop or click to attach</div>
         <input id="tds_file" type="file" accept="application/pdf,.doc,.docx,.md,.txt" style="display:none">
         <div id="tdsMeta" class="help">No file chosen.</div>
@@ -221,81 +196,78 @@
     <!-- Structured TDS (key particulars) -->
     <div class="card" style="margin-top:14px">
       <h3>Structured TDS (key particulars)</h3>
-      <div class="help">These fields help the engine tally claims vs. label. You can paste quick notes; they will be bundled as “tds_struct”.</div>
-      <div class="row two" style="margin-top:8px">
+      <div class="help">These fields help the engine tally claims vs. label; you can paste quick notes; they will be bundled as "tds_struct".</div>
+      <div class="grid two" style="margin-top:8px">
         <div>
           <label>Composition / Ingredients (descending)</label>
-          <textarea id="tds_composition" rows="3" placeholder="Chickpea flour (60%), water, salt…"></textarea>
+          <textarea id="tds_ing" rows="3" placeholder="Chickpea flour (60%), water, salt…"></textarea>
         </div>
         <div>
           <label>Annex II Allergens (bolded in label)</label>
           <textarea id="tds_allergens" rows="3" placeholder="Gluten; Soy; Milk; Tree nuts…"></textarea>
         </div>
-      </div>
-      <div class="row three" style="margin-top:8px">
         <div>
           <label>QUID drivers (% near name or in list)</label>
-          <textarea id="tds_quid" rows="3" placeholder="Chickpeas 60%; Cocoa 35%; Fruit 12%…"></textarea>
+          <textarea id="tds_quid" rows="2" placeholder="Chickpeas 60%; Cocoa 35%; Fruit 12%…"></textarea>
         </div>
         <div>
           <label>Nutrition (per 100 g/ml)</label>
-          <textarea id="tds_nutrition" rows="3" placeholder="Energy 1500 kJ / 360 kcal; Fat 2.0 g…"></textarea>
+          <textarea id="tds_nutri" rows="2" placeholder="Energy 1500 kJ / 360 kcal; Fat 2.0 g…"></textarea>
         </div>
         <div>
           <label>Net quantity</label>
-          <textarea id="tds_netqty" rows="3" placeholder="500 g; 1 L; ℮ symbol if used"></textarea>
+          <textarea id="tds_netqty" rows="2" placeholder="500 g; 1 L; ℮ symbol if used"></textarea>
         </div>
-      </div>
-      <div class="row three" style="margin-top:8px">
         <div>
           <label>Storage / Use conditions</label>
-          <textarea id="tds_storage" rows="3" placeholder="Keep in a cool, dry place. Refrigerate after opening…"></textarea>
+          <textarea id="tds_storage" rows="2" placeholder="Keep in a cool, dry place. Refrigerate after opening…"></textarea>
         </div>
         <div>
           <label>FBO name & EU address</label>
-          <textarea id="tds_fbo" rows="3" placeholder="ACME Foods S.r.l., Via Roma 10, 20100 Milano, IT"></textarea>
+          <textarea id="tds_fbo" rows="2" placeholder="ACME Foods S.r.l., Via Roma 10, 20100 Milano, IT"></textarea>
         </div>
         <div>
           <label>Date marking</label>
-          <textarea id="tds_date" rows="3" placeholder="Best before end: MM/YYYY; Use by: DD/MM/YYYY"></textarea>
+          <textarea id="tds_date" rows="2" placeholder="Best before end: MM/YYYY; Use by: DD/MM/YYYY"></textarea>
         </div>
-      </div>
-      <div class="row three" style="margin-top:8px">
         <div>
           <label>Claims (nutrition/health/marketing)</label>
-          <textarea id="tds_claims" rows="3" placeholder="High in protein; No added sugar; Source of fiber…"></textarea>
+          <textarea id="tds_claims" rows="2" placeholder="High in protein; No added sugar; Source of fiber…"></textarea>
         </div>
         <div>
           <label>Country of origin / Primary ingredient origin</label>
-          <textarea id="tds_origin" rows="3" placeholder="Origin: Italy; Primary ingredient: EU…"></textarea>
+          <textarea id="tds_origin" rows="2" placeholder="Origin: Italy; Primary ingredient: EU…"></textarea>
         </div>
         <div>
           <label>Additives & processing aids</label>
-          <textarea id="tds_additives" rows="3" placeholder="E471 (plant), E322 (sunflower lecithin), enzymes…"></textarea>
+          <textarea id="tds_additives" rows="2" placeholder="E471 (plant), E322 (sunflower lecithin), enzymes…"></textarea>
         </div>
-      </div>
-      <div class="row two" style="margin-top:8px">
         <div>
           <label>Certifications / Logos (e.g., Halal, Organic)</label>
-          <textarea id="tds_certs" rows="3" placeholder="Halal by X Certifier; EU Organic; Gluten-Free…"></textarea>
+          <textarea id="tds_certs" rows="2" placeholder="Halal by X Certifier; EU Organic; Gluten-Free…"></textarea>
         </div>
-        <div>
+        <div style="grid-column:1/-1">
           <label>Notes / Buyer rules / Evidence</label>
-          <textarea id="reference_docs_text" rows="3" placeholder="Paste internal spec, buyer rules, emails, supplier letters, SDS, etc."></textarea>
+          <textarea id="tds_notes" rows="3" placeholder="Paste internal spec, buyer rules, emails, supplier letters, SDS, etc."></textarea>
         </div>
       </div>
+    </div>
+
+    <!-- Extra free-text rules -->
+    <div class="card" style="margin-top:14px">
+      <h3>Extra rules / buyer requirements (optional)</h3>
+      <textarea id="reference_docs_text" rows="5" placeholder="Paste internal spec, buyer rules, claims substantiation..."></textarea>
+      <div class="help">If omitted, the engine uses EU baseline and our internal database.</div>
     </div>
 
     <!-- Options -->
     <div class="card" style="margin-top:14px">
       <h3>Options & Consent</h3>
-      <div class="row" style="grid-template-columns:auto 1fr;align-items:center;margin-top:6px">
+      <div class="row" style="grid-template-columns:auto 1fr;align-items:center;margin-top:10px">
         <input id="consent_chk" type="checkbox" style="width:18px;height:18px;margin:0 8px 0 4px">
         <div>
           <div style="font-weight:700">I consent to processing & secure storage</div>
-          <div class="help">
-            Data controller: Nexodify. Retention: until deleted on request (your moat). No sale to third parties.
-          </div>
+          <div class="help">I agree that Nexodify may process and securely store my files and metadata for quality improvement and auditability. Data controller: Nexodify. Retention: kept indefinitely (delete on request). No sale to third parties.</div>
         </div>
       </div>
       <div class="row" style="grid-template-columns:auto 1fr;align-items:center">
@@ -306,320 +278,130 @@
         </div>
       </div>
       <div class="toolbar">
-        <button class="btn ghost" id="clearBasketBtn" type="button">Clear Dataset Basket</button>
-        <button class="btn secondary" id="resetBtn" type="button">Reset Form</button>
+        <button class="btn secondary" id="resetBtn" type="button">Reset</button>
         <button class="btn" id="goBtn">Generate Preflight</button>
       </div>
     </div>
 
-    <!-- Results + Dataset Basket -->
-    <div class="grid two" style="margin-top:16px">
-      <div>
-        <div id="results" style="display:none">
-          <div class="card" id="summaryCard"></div>
-          <div id="checksWrap"></div>
-          <div class="card downloads" id="downloadsCard" style="display:none"></div>
-        </div>
-      </div>
+    <!-- Results -->
+    <div id="results" style="margin-top:16px;display:none">
+      <div class="card" id="summaryCard"></div>
+      <div id="checksWrap"></div>
+      <div class="card downloads" id="downloadsCard" style="display:none"></div>
+    </div>
 
-      <div class="card">
-        <h3>Dataset Basket (corrections you make)</h3>
-        <div class="tabs">
-          <div class="tab active" data-part="all">All</div>
-          <div class="tab" data-part="train">Train</div>
-          <div class="tab" data-part="test">Test</div>
-          <div class="tab" data-part="val">Validation</div>
-        </div>
-        <div class="toolbar" style="justify-content:flex-start;margin-top:6px">
-          <button class="btn small" id="exportCsvBtn" title="Exports current tab">Export CSV</button>
-          <button class="btn small ghost" id="exportAllCsvBtn">Export CSV (All)</button>
-        </div>
-        <div class="basket" id="basketList"><div class="help">No corrections yet. When you Accept/Fix/Dispute a check, it will appear here.</div></div>
+    <!-- Dataset Basket (ADMIN ONLY) -->
+    <div class="card" id="basketCard" style="margin-top:16px; display:none">
+      <h3>Dataset Basket (admin only)</h3>
+      <div class="tabbar">
+        <button class="tab active" data-tab="all">All</button>
+        <button class="tab" data-tab="train">Train</button>
+        <button class="tab" data-tab="test">Test</button>
+        <button class="tab" data-tab="val">Validation</button>
+      </div>
+      <div id="basketTableWrap" class="help">No items in this tab.</div>
+      <div class="toolbar">
+        <button class="btn secondary" id="clearBasketBtn" type="button">Clear Dataset Basket</button>
+        <button class="btn secondary" id="resetFormBtn" type="button">Reset Form</button>
+        <button class="btn" id="exportTabBtn" type="button">Export CSV</button>
+        <button class="btn" id="exportAllBtn" type="button">Export CSV (All)</button>
       </div>
     </div>
   </div>
 
 <script>
 /* ------------------ Config ------------------ */
-const API_BASE = "https://api.nexodify.com"; // VM endpoint
-const ADMIN_TITLE = "Nexodify Admin";
-const ADMIN_PASS_HINT = "ADMIN PASS"; // you can change later
+const API_BASE = "https://api.nexodify.com";
 
 /* ------------------ Helpers ------------------ */
 const $ = (id)=>document.getElementById(id);
 const esc = (s)=>String(s??"").replace(/[&<>]/g,c=>({ "&":"&amp;","<":"&lt;",">":"&gt;" }[c]));
 const isArray = (v)=>Array.isArray(v);
 const fmtKB = (n)=>Math.round((n||0)/1024);
-const uid = ()=>Math.random().toString(36).slice(2)+Date.now().toString(36);
-
+const today = ()=>new Date().toISOString().slice(0,10);
 function overallClass(s){ s=(s||"caution").toLowerCase(); return s==="pass"?"pass":s==="fail"?"fail":"caution"; }
-function toDataURL(file){
-  return new Promise((resolve,reject)=>{
-    const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=reject; r.readAsDataURL(file);
-  });
-}
+function toDataURL(file){ return new Promise((resolve,reject)=>{const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=reject; r.readAsDataURL(file);});}
 
-/* ------------------ Dataset Basket (localStorage) ------------------ */
-const LS_KEY = "nexo_basket_v1";
-let basket = JSON.parse(localStorage.getItem(LS_KEY)||"[]");
-let basketTab = "all";
-
-function saveBasket(){ localStorage.setItem(LS_KEY, JSON.stringify(basket)); renderBasket(); }
-function clearBasket(){ basket = []; saveBasket(); }
-function addToBasket(entry){
-  basket.push({ id: uid(), part: "train", ...entry });
-  saveBasket();
-}
-
-function setTab(part){
-  basketTab = part;
-  document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active", t.dataset.part===part));
-  renderBasket();
-}
-
-function basketCounts(){
-  const c = {all:basket.length, train:0, test:0, val:0};
-  for(const b of basket){ if(c[b.part]!=null) c[b.part]++; }
-  return c;
-}
-
-function renderBasket(){
-  const wrap = $("basketList");
-  const list = basket.filter(b => basketTab==="all" ? true : b.part===basketTab);
-  if(!list.length){ wrap.innerHTML = `<div class="help">No items in this tab.</div>`; return; }
-  wrap.innerHTML = list.map(b => `
-    <div class="rowLine">
-      <div>
-        <div><b>${esc(b.check_title)}</b> <span class="pill">${esc(b.action)}</span> <span class="pill">${esc(b.part.toUpperCase())}</span></div>
-        <div class="meta">${esc(b.product_name||"-")} • was: ${esc(b.prev_status||"-")} / ${esc(b.prev_severity||"-")} • rationale: ${esc(b.rationale||"-")}</div>
-        ${b.new_text ? `<div class="meta">new text: ${esc(b.new_text)}</div>` : ""}
-      </div>
-      <div style="display:flex;gap:6px">
-        <select data-id="${b.id}" class="partSel" style="background:#0d1330;border:1px solid #2b3a78;color:#eaf0ff;border-radius:8px;padding:6px">
-          <option ${b.part==="train"?"selected":""} value="train">Train</option>
-          <option ${b.part==="test"?"selected":""} value="test">Test</option>
-          <option ${b.part==="val"?"selected":""} value="val">Validation</option>
-        </select>
-        <button class="btn small ghost delBtn" data-id="${b.id}">Delete</button>
-      </div>
-    </div>
-  `).join("");
-
-  // wire deletes & partition changes
-  wrap.querySelectorAll(".delBtn").forEach(btn=>{
-    btn.onclick = ()=>{ basket = basket.filter(x => x.id !== btn.dataset.id); saveBasket(); };
-  });
-  wrap.querySelectorAll(".partSel").forEach(sel=>{
-    sel.onchange = ()=>{ const it = basket.find(x=>x.id===sel.dataset.id); if(it){ it.part = sel.value; saveBasket(); } };
-  });
-}
-document.addEventListener("click", (e)=>{
-  if(e.target.classList.contains("tab")) setTab(e.target.dataset.part);
-});
-renderBasket();
-
-function exportCsvFrom(list){
-  const rows = [["timestamp","product_name","company_name","country_of_sale","check_title","prev_status","prev_severity","action","new_text","rationale","mandatory","sources","overall_score","halal","partition"]];
-  for(const b of list){
-    rows.push([
-      new Date(b.ts||Date.now()).toISOString(),
-      b.product_name||"", b.company_name||"", b.country_of_sale||"",
-      b.check_title||"", b.prev_status||"", b.prev_severity||"",
-      b.action||"", (b.new_text||"").replace(/\n/g," "),
-      (b.rationale||"").replace(/\n/g," "),
-      String(b.mandatory ?? ""), (Array.isArray(b.sources)?b.sources.join("|"):""),
-      String(b.overall_score ?? ""), String(b.halal ?? ""), b.part||""
-    ]);
-  }
-  const csv = rows.map(r=>r.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(",")).join("\n");
-  const blob = new Blob([csv], {type:"text/csv"});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = `nexodify_dataset_${Date.now()}.csv`;
-  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-}
-
-function exportCsv(currentOnly=false){
-  const list = currentOnly && basketTab!=="all" ? basket.filter(b=>b.part===basketTab) : basket;
-  exportCsvFrom(list);
-}
-$("exportCsvBtn").onclick = ()=>exportCsv(true);
-$("exportAllCsvBtn").onclick = ()=>exportCsv(false);
-$("clearBasketBtn").onclick = ()=>{ if(confirm("Clear all items from Dataset Basket?")) clearBasket(); };
-
-/* ------------------ Admin Panel ------------------ */
+/* ------------------ Admin: key storage & ping ------------------ */
 const adminBtn = $("adminBtn");
-const adminOverlay = $("adminOverlay");
-const adminClose = $("adminClose");
-const adminAuth = $("adminAuth");
-const adminBody = $("adminBody");
-const adminPassInput = $("adminPass");
-const adminLogin = $("adminLogin");
-const serverList = $("serverList");
-const basketStats = $("basketStats");
+const adminPanel = $("adminPanel");
+const adminStatus = $("adminStatus");
+const keyModal = $("keyModal");
+const adminKeyInput = $("adminKeyInput");
+const keyMsg = $("keyMsg");
+const saveKey = $("saveKey");
+const cancelKey = $("cancelKey");
+const adminDay = $("adminDay");
+const basketCard = $("basketCard");
 
-function openAdmin(){ adminOverlay.style.display="flex"; updateAdminState(); }
-function closeAdmin(){ adminOverlay.style.display="none"; }
+adminDay.value = today();
 
-adminBtn.onclick = openAdmin;
-adminClose.onclick = closeAdmin;
-
-function updateAdminState(){
-  const k = sessionStorage.getItem("nexo_admin_k") || "";
-  const ok = !!k;
-  adminAuth.style.display = ok ? "none" : "block";
-  adminBody.style.display = ok ? "block" : "none";
-  if(ok){ refreshServerList(); }
-  const c = basketCounts();
-  basketStats.textContent = `Local Dataset Basket — All: ${c.all}, Train: ${c.train}, Test: ${c.test}, Val: ${c.val}`;
+function getAdminKey(){ return sessionStorage.getItem("admin_key") || ""; }
+function setAdminKey(k){ sessionStorage.setItem("admin_key", k); }
+function adminAuthenticated(){ return !!sessionStorage.getItem("admin_ok"); }
+function setAdminAuth(ok){
+  if(ok){ sessionStorage.setItem("admin_ok","1"); basketCard.style.display="block"; }
+  else { sessionStorage.removeItem("admin_ok"); basketCard.style.display="none"; }
 }
-adminLogin.onclick = ()=>{
-  const v = adminPassInput.value.trim();
-  if(!v){ alert("Enter password."); return; }
-  sessionStorage.setItem("nexo_admin_k", v);
-  updateAdminState();
-};
-window.addEventListener("keydown",(e)=>{ if(e.key==="Escape" && adminOverlay.style.display==="flex") closeAdmin(); });
-
-// quick exports in admin
-$("adExpAll").onclick = ()=> exportCsvFrom(basket);
-$("adExpTrain").onclick = ()=> exportCsvFrom(basket.filter(b=>b.part==="train"));
-$("adExpTest").onclick = ()=> exportCsvFrom(basket.filter(b=>b.part==="test"));
-$("adExpVal").onclick = ()=> exportCsvFrom(basket.filter(b=>b.part==="val"));
-
-async function refreshServerList(){
-  serverList.innerHTML = `<div class="help">Loading…</div>`;
-  const key = sessionStorage.getItem("nexo_admin_k") || "";
+async function pingAdmin(){
+  const key = getAdminKey();
+  if(!key){ adminStatus.textContent="no key"; adminStatus.className="pill err"; setAdminAuth(false); return false; }
   try{
-    const r = await fetch(`${API_BASE}/admin/list`, {
+    const r = await fetch(`${API_BASE}/admin/ping`, { headers: { "x-admin-key": key }});
+    if(r.ok){ adminStatus.textContent="OK"; adminStatus.className="pill ok"; setAdminAuth(true); return true; }
+    adminStatus.textContent="Forbidden"; adminStatus.className="pill err"; setAdminAuth(false); return false;
+  }catch(e){ adminStatus.textContent="Error"; adminStatus.className="pill err"; setAdminAuth(false); return false; }
+}
+if (adminAuthenticated()) basketCard.style.display="block";
+
+adminBtn.addEventListener("click", async ()=>{
+  if(getAdminKey()){
+    adminPanel.style.display = adminPanel.style.display==="none"?"block":"none";
+    await pingAdmin();
+  } else {
+    keyModal.style.display="flex";
+    adminKeyInput.value="";
+    keyMsg.textContent="";
+  }
+});
+saveKey.addEventListener("click", async ()=>{
+  const k = adminKeyInput.value.trim();
+  if(!k){ keyMsg.textContent="Enter a passkey."; return; }
+  setAdminKey(k);
+  keyModal.style.display="none";
+  adminPanel.style.display="block";
+  await pingAdmin();
+});
+cancelKey.addEventListener("click", ()=> keyModal.style.display="none");
+
+/* Admin export helpers */
+async function downloadCsv(type){
+  const day = (adminDay.value||today()).trim();
+  const key = getAdminKey();
+  if(!key){ adminPanel.style.display="none"; keyModal.style.display="flex"; return; }
+  try{
+    const res = await fetch(`${API_BASE}/admin/export?type=${encodeURIComponent(type)}&day=${encodeURIComponent(day)}`, {
       headers: { "x-admin-key": key }
     });
-    if(!r.ok) throw new Error(`HTTP ${r.status}`);
-    const data = await r.json(); // expect: { files: [{name,size,ts}, ...] }
-    const files = Array.isArray(data.files)?data.files:[];
-    if(!files.length){
-      serverList.innerHTML = `<div class="help">No server datasets yet.</div>`;
+    if(!res.ok){
+      const txt = await res.text();
+      alert(`Export failed: ${res.status} ${res.statusText}\n${txt}`);
+      await pingAdmin();
       return;
     }
-    serverList.innerHTML = files.map(f => `
-      <div class="item">
-        <div>
-          <div><b>${esc(f.name)}</b></div>
-          <div class="help">${(f.size?fmtKB(f.size):"?")} KB • ${f.ts ? new Date(f.ts).toLocaleString() : ""}</div>
-        </div>
-        <button class="btn small" data-dl="${esc(f.name)}">Download</button>
-      </div>
-    `).join("");
-
-    // wire downloads (authenticated fetch → blob → download)
-    serverList.querySelectorAll("[data-dl]").forEach(btn=>{
-      btn.onclick = async ()=>{
-        const fname = btn.dataset.dl;
-        btn.disabled = true; btn.textContent = "Downloading…";
-        try{
-          const rr = await fetch(`${API_BASE}/admin/download?file=${encodeURIComponent(fname)}`, {
-            method: "POST",
-            headers: { "x-admin-key": key }
-          });
-          if(!rr.ok) throw new Error(`HTTP ${rr.status}`);
-          const blob = await rr.blob();
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url; a.download = fname; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-        }catch(e){ alert("Download failed: "+(e.message||e)); }
-        finally{ btn.disabled = false; btn.textContent = "Download"; }
-      };
-    });
-
-  }catch(e){
-    serverList.innerHTML = `<div class="help">Server list not available yet. (${esc(e.message||e)})</div>`;
-  }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `${type}_${day}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  }catch(e){ alert("Network error: "+e.message); }
 }
+$("btnRuns").onclick = ()=>downloadCsv("runs");
+$("btnChecks").onclick = ()=>downloadCsv("checks");
+$("btnCorrections").onclick = ()=>downloadCsv("corrections");
 
-/* ------------------ Checks rendering ------------------ */
-function checkLane(c){ return c.status==="ok"?"ok":(c.severity==="high"?"bad":"med"); }
-function renderCheck(c, context){
-  const lane = checkLane(c);
-  const id = uid();
-  const srcs = (isArray(c.sources)&&c.sources.length) ? `<div class="hint">Sources: ${c.sources.map(esc).join("; ")}</div>` : "";
-  const fix = (c.status!=="ok" && c.fix) ? `<div>→ <i>${esc(c.fix)}</i></div>` : "";
-  const detail = c.detail ? `<div>${esc(c.detail)}</div>` : "";
-
-  return `
-    <div class="card check ${lane}" id="chk_${id}">
-      <div class="ttl">${esc(c.title||"-")}
-        <span class="chip">${esc((c.status||"").toUpperCase())}${c.severity?` · ${esc(c.severity)}`:""}</span>
-        ${c.mandatory===false ? `<span class="chip">Optional</span>` : ""}
-      </div>
-      ${detail}${fix}${srcs}
-      <div class="actions">
-        <button class="btn small" data-act="accept" data-id="${id}">Accept</button>
-        <button class="btn small secondary" data-act="fix" data-id="${id}">Fix / Edit</button>
-        <button class="btn small ghost" data-act="dispute" data-id="${id}">Dispute</button>
-        <button class="btn small ghost" data-act="na" data-id="${id}">Mark N/A</button>
-      </div>
-      <div class="edit" id="edit_${id}" style="display:none">
-        <div class="row two">
-          <div>
-            <label>Proposed corrected text</label>
-            <textarea rows="3" id="txt_${id}" placeholder="Write the corrected wording or the precise fix you will implement…"></textarea>
-          </div>
-          <div>
-            <label>Short rationale / evidence</label>
-            <textarea rows="3" id="why_${id}" placeholder="E.g., Supplier letter confirms plant E471; QUID should be 60%; Claim removed…"></textarea>
-          </div>
-        </div>
-        <div class="toolbar" style="justify-content:flex-start">
-          <button class="btn small" data-act="save" data-id="${id}">Save Correction to Basket</button>
-          <button class="btn small ghost" data-act="cancel" data-id="${id}">Cancel</button>
-        </div>
-      </div>
-    </div>
-  `;
-}
-function wireCheckActions(container, checks, context){
-  container.addEventListener("click", (e)=>{
-    const act = e.target?.dataset?.act; if(!act) return;
-    const id = e.target.dataset.id;
-    const host = document.getElementById("chk_"+id);
-    const edit = document.getElementById("edit_"+id);
-    const chkTitle = host.querySelector(".ttl").childNodes[0].nodeValue.trim();
-    const c = checks.find(x=> (x._id||"") === id || (x.title||"")===chkTitle) || {};
-
-    if(act==="fix" || act==="dispute" || act==="na"){
-      edit.style.display = "block";
-      edit.dataset.mode = act;
-    } else if(act==="accept"){
-      const entry = {
-        ts: Date.now(),
-        product_name: context.product_name, company_name: context.company_name, country_of_sale: context.country_of_sale,
-        overall_score: context.score, halal: context.halal_audit,
-        check_title: chkTitle, prev_status: c.status, prev_severity: c.severity, action: "accept",
-        new_text: "", rationale: "Accepted as is.", mandatory: c.mandatory, sources: c.sources||[]
-      };
-      addToBasket(entry);
-      host.style.outline = "2px solid #236b4a";
-    } else if(act==="save"){
-      const mode = edit.dataset.mode || "fix";
-      const newText = document.getElementById("txt_"+id).value.trim();
-      const why = document.getElementById("why_"+id).value.trim();
-      const entry = {
-        ts: Date.now(),
-        product_name: context.product_name, company_name: context.company_name, country_of_sale: context.country_of_sale,
-        overall_score: context.score, halal: context.halal_audit,
-        check_title: chkTitle, prev_status: c.status, prev_severity: c.severity,
-        action: mode, new_text: newText, rationale: why, mandatory: c.mandatory, sources: c.sources||[]
-      };
-      addToBasket(entry);
-      edit.style.display = "none";
-      host.style.outline = "2px solid #5066c7";
-    } else if(act==="cancel"){
-      edit.style.display = "none";
-    }
-  }, { once:false });
-}
-
-/* ------------------ Form wiring ------------------ */
+/* ------------------ Dropzones ------------------ */
 const productName = $("product_name");
 const productCategory = $("product_category");
 const companyName = $("company_name");
@@ -633,45 +415,23 @@ const labelDrop = $("labelDrop");
 const tdsDrop = $("tdsDrop");
 const labelMeta = $("labelMeta");
 const tdsMeta = $("tdsMeta");
+const extraRules = $("reference_docs_text");
 const halalToggle = $("halal_audit");
 const consentChk = $("consent_chk");
-
-// structured TDS fields
-function tdsStruct(){
-  return {
-    composition: $("tds_composition").value.trim(),
-    allergens: $("tds_allergens").value.trim(),
-    quid: $("tds_quid").value.trim(),
-    nutrition: $("tds_nutrition").value.trim(),
-    netqty: $("tds_netqty").value.trim(),
-    storage: $("tds_storage").value.trim(),
-    fbo: $("tds_fbo").value.trim(),
-    date: $("tds_date").value.trim(),
-    claims: $("tds_claims").value.trim(),
-    origin: $("tds_origin").value.trim(),
-    additives: $("tds_additives").value.trim(),
-    certs: $("tds_certs").value.trim(),
-    notes: $("reference_docs_text").value.trim()
-  };
-}
-
 const goBtn = $("goBtn");
 const resetBtn = $("resetBtn");
-
 const results = $("results");
 const summaryCard = $("summaryCard");
 const checksWrap = $("checksWrap");
 const downloadsCard = $("downloadsCard");
 
 function setLoading(b){ goBtn.disabled=b; goBtn.textContent=b?"Generating…":"Generate Preflight"; }
-
-/* Dropzones */
 function wireDrop(zone,input,meta){
   const setMeta = (f)=>meta.textContent = f ? `${f.name} (${Math.round(f.size/1024)} KB)` : "No file chosen.";
   zone.addEventListener("click",()=>input.click());
   zone.addEventListener("dragover",e=>{e.preventDefault(); zone.style.borderColor="#6f90ff";});
   zone.addEventListener("dragleave",()=>zone.style.borderColor="#3950a3");
-  zone.addEventListener("drop",async e=>{
+  zone.addEventListener("drop",e=>{
     e.preventDefault(); zone.style.borderColor="#3950a3";
     const f=e.dataTransfer.files?.[0]; if(!f) return;
     input.files = e.dataTransfer.files; setMeta(f);
@@ -681,23 +441,173 @@ function wireDrop(zone,input,meta){
 wireDrop(labelDrop,labelInput,labelMeta);
 wireDrop(tdsDrop,tdsInput,tdsMeta);
 
-/* Reset */
+/* ------------------ Render helpers ------------------ */
+function renderCheck(c, idx){
+  const lane = c.status==="ok" ? "ok" : (c.severity==="high" ? "bad" : "med");
+  const corrUi = (c.status==="ok" || !adminAuthenticated()) ? "" : `
+    <div class="hint" style="margin-top:6px">
+      <div><b>Proposed fix:</b> ${esc(c.fix||'')}</div>
+      <div style="display:grid;gap:6px;margin-top:6px">
+        <textarea data-idx="${idx}" class="corr-text" rows="2" placeholder="Your corrected text / label phrasing…"></textarea>
+        <input data-idx="${idx}" class="corr-rationale" placeholder="Rationale / reference (optional)">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button class="tagbtn" data-idx="${idx}" data-tag="train">Tag Train</button>
+          <button class="tagbtn" data-idx="${idx}" data-tag="test">Tag Test</button>
+          <button class="tagbtn" data-idx="${idx}" data-tag="val">Tag Validation</button>
+          <label style="display:flex;gap:6px;align-items:center">
+            <input type="checkbox" data-idx="${idx}" class="corr-mand" /> Mandatory?
+          </label>
+          <button class="btn secondary" data-idx="${idx}" data-action="add-corr">Add to Basket</button>
+        </div>
+      </div>
+    </div>`;
+  return `<div class="card check ${lane}">
+    <div class="ttl">${esc(c.title||"-")} <span class="chip" style="margin-left:6px">${esc((c.status||"").toUpperCase())}${c.severity?` · ${esc(c.severity)}`:""}</span></div>
+    ${c.detail ? `<div>${esc(c.detail)}</div>` : ""}
+    ${c.status!=="ok" && c.fix ? `<div>→ <i>${esc(c.fix)}</i></div>` : ""}
+    ${isArray(c.sources)&&c.sources.length ? `<div class="hint">Sources: ${c.sources.map(esc).join("; ")}</div>` : ""}
+    ${corrUi}
+  </div>`;
+}
+function renderChecksBlock(title, arr){
+  if(!isArray(arr)||!arr.length) return "";
+  return `<div class="section"><div class="card"><h3>${esc(title)}</h3><div class="checks">${arr.map((c,i)=>renderCheck(c,i)).join("")}</div></div></div>`;
+}
+
+/* ------------------ Basket (admin only) ------------------ */
+const basket = { all:[], train:[], test:[], val:[] };
+let activeTab = "all";
+const basketTableWrap = $("basketTableWrap");
+const tabs = Array.from(document.querySelectorAll(".tab"));
+
+function basketRowToCsv(r){
+  const escCsv = (v)=> {
+    if (v===null||v===undefined) return "";
+    const s=String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+  };
+  return [
+    r.ts_iso, r.product_name, r.check_title, r.prev_status, r.prev_severity, r.action,
+    r.new_text, r.rationale, r.mandatory, (r.sources||[]).join('|'),
+    r.overall_score ?? "", r.halal ?? ""
+  ].map(escCsv).join(",");
+}
+function downloadCsvFile(filename, rows, header){
+  const csv = [header, ...rows.map(basketRowToCsv)].join("\n");
+  const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+function renderBasket(){
+  const arr = basket[activeTab] || [];
+  if(!arr.length){ basketTableWrap.className="help"; basketTableWrap.innerHTML="No items in this tab."; return; }
+  basketTableWrap.className="";
+  const head = `
+    <table><thead><tr>
+      <th>ts_iso</th><th>product_name</th><th>check_title</th><th>prev_status</th><th>prev_severity</th>
+      <th>action</th><th>new_text</th><th>rationale</th><th>mandatory</th><th>sources</th><th>overall_score</th><th>halal</th>
+    </tr></thead><tbody>`;
+  const rows = arr.map(r=>`<tr>
+    <td>${esc(r.ts_iso)}</td><td>${esc(r.product_name)}</td><td>${esc(r.check_title)}</td>
+    <td>${esc(r.prev_status)}</td><td>${esc(r.prev_severity)}</td><td>${esc(r.action)}</td>
+    <td>${esc(r.new_text)}</td><td>${esc(r.rationale)}</td><td>${r.mandatory?'yes':'no'}</td>
+    <td>${esc((r.sources||[]).join('|'))}</td><td>${esc(r.overall_score??'')}</td><td>${esc(r.halal??'')}</td>
+  </tr>`).join("");
+  basketTableWrap.innerHTML = head + rows + "</tbody></table>";
+}
+tabs.forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    tabs.forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    activeTab = btn.dataset.tab;
+    renderBasket();
+  });
+});
+$("clearBasketBtn").onclick = ()=>{
+  if(!adminAuthenticated()) return;
+  basket.all=[]; basket.train=[]; basket.test=[]; basket.val=[]; renderBasket();
+};
+$("exportTabBtn").onclick = ()=>{
+  if(!adminAuthenticated()) return;
+  const arr = basket[activeTab]||[];
+  if(!arr.length) { alert("No rows to export in this tab."); return; }
+  downloadCsvFile(`basket_${activeTab}_${today()}.csv`, arr,
+    "ts_iso,product_name,check_title,prev_status,prev_severity,action,new_text,rationale,mandatory,sources,overall_score,halal");
+};
+$("exportAllBtn").onclick = ()=>{
+  if(!adminAuthenticated()) return;
+  const all = [...basket.all, ...basket.train, ...basket.test, ...basket.val];
+  if(!all.length){ alert("No rows to export."); return; }
+  downloadCsvFile(`basket_all_${today()}.csv`, all,
+    "ts_iso,product_name,check_title,prev_status,prev_severity,action,new_text,rationale,mandatory,sources,overall_score,halal");
+};
+$("resetFormBtn").onclick = ()=>resetAll();
+
+/* capture “Add to Basket” clicks */
+document.addEventListener("click",(e)=>{
+  const t = e.target;
+  if(!(t instanceof HTMLElement)) return;
+  if(t.dataset?.action==="add-corr"){
+    if(!adminAuthenticated()){ alert("Admin only. Click Admin and enter passkey."); return; }
+    const idx = Number(t.dataset.idx||0);
+    const txt = document.querySelector(`.corr-text[data-idx="${idx}"]`)?.value?.trim()||"";
+    const rat = document.querySelector(`.corr-rationale[data-idx="${idx}"]`)?.value?.trim()||"";
+    const man = document.querySelector(`.corr-mand[data-idx="${idx}"]`)?.checked||false;
+    const tagBtn = document.querySelector(`.tagbtn[data-idx="${idx}"][data-tag].last-tagged`);
+    const tag = tagBtn?.dataset?.tag || "all";
+
+    const chk = lastResponseReport?.checks?.[idx] || {};
+    const row = {
+      ts_iso: new Date().toISOString(),
+      product_name: lastResponseReport?.product?.name || (productName.value||""),
+      check_title: chk.title || "",
+      prev_status: chk.status || "",
+      prev_severity: chk.severity || "",
+      action: "replace_text",
+      new_text: txt,
+      rationale: rat,
+      mandatory: !!man,
+      sources: chk.sources || [],
+      overall_score: lastResponseReport?.score ?? lastResponseReport?.overall_score,
+      halal: !!(lastHalalOn)
+    };
+    basket[tag].push(row);
+    renderBasket();
+    alert("Added to dataset basket.");
+  }
+  if(t.classList.contains("tagbtn")){
+    // mark the last tagged for this idx
+    const idx = t.dataset.idx;
+    document.querySelectorAll(`.tagbtn[data-idx="${idx}"]`).forEach(b=>b.classList.remove("last-tagged"));
+    t.classList.add("last-tagged");
+  }
+});
+
+/* ------------------ Form wiring ------------------ */
 function resetAll(){
   [productName, companyName, companyEmail, countrySale, languagesProvided].forEach(el=>el.value="");
-  productCategory.selectedIndex = 0; shippingScope.selectedIndex=0; halalToggle.checked=false;
-  ["tds_composition","tds_allergens","tds_quid","tds_nutrition","tds_netqty","tds_storage","tds_fbo","tds_date","tds_claims","tds_origin","tds_additives","tds_certs","reference_docs_text"].forEach(id=>$(id).value="");
+  productCategory.selectedIndex = 0; shippingScope.selectedIndex=0; halalToggle.checked=false; extraRules.value="";
+  ["tds_ing","tds_allergens","tds_quid","tds_nutri","tds_netqty","tds_storage","tds_fbo","tds_date","tds_claims","tds_origin","tds_additives","tds_certs","tds_notes"]
+    .forEach(id=>$(id).value="");
   consentChk.checked = false;
   labelInput.value=""; tdsInput.value=""; labelMeta.textContent="No file chosen."; tdsMeta.textContent="No file chosen.";
   results.style.display="none"; summaryCard.innerHTML=""; checksWrap.innerHTML=""; downloadsCard.style.display="none"; downloadsCard.innerHTML="";
 }
 resetBtn.addEventListener("click", resetAll);
 
-/* Generate */
+let lastResponseReport=null, lastHalalOn=false;
+
+function setLoading(b){ goBtn.disabled=b; goBtn.textContent=b?"Generating…":"Generate Preflight"; }
+
 goBtn.addEventListener("click", async ()=>{
   try{
     setLoading(true);
-    if (!consentChk.checked) { setLoading(false); return alert("Please tick consent to proceed."); }
-
+    if (!consentChk.checked) {
+      setLoading(false);
+      alert("Please tick consent to proceed.");
+      return;
+    }
     results.style.display="block";
     summaryCard.innerHTML = '<div class="pre">Running…</div>';
     checksWrap.innerHTML=""; downloadsCard.style.display="none"; downloadsCard.innerHTML="";
@@ -707,13 +617,13 @@ goBtn.addEventListener("click", async ()=>{
       company_name: companyName.value.trim(),
       company_email: companyEmail.value.trim(),
       country_of_sale: countrySale.value.trim(),
-      languages_provided: (languagesProvided.value||"").split(/[,;]\s*|\s*,\s*/).map(s=>s.trim()).filter(Boolean),
+      languages_provided: (languagesProvided.value||"").split(/[,;]\s*|,\s*|\s*,\s*/).map(s=>s.trim()).filter(Boolean),
       shipping_scope: shippingScope.value,
       product_category: productCategory.value,
-      halal_audit: halalToggle.checked,
-      tds_struct: tdsStruct(),
-      consent: true
+      reference_docs_text: buildTdsStructured() + "\n\n" + (extraRules.value||""),
+      halal_audit: halalToggle.checked
     };
+    lastHalalOn = fields.halal_audit;
 
     if(labelInput.files[0]){
       const lf = labelInput.files[0];
@@ -726,15 +636,14 @@ goBtn.addEventListener("click", async ()=>{
       fields.tds_file = { name: tf.name, base64: await toDataURL(tf) };
     }
 
-    // send current basket (optional for learning)
-    fields.user_corrections = basket;
-
     const resp = await fetch(`${API_BASE}/api/check-label`, {
       method:"POST",
       headers:{ "Content-Type":"application/json" },
       body: JSON.stringify(fields)
     });
     const data = await resp.json();
+
+    lastResponseReport = data.report || null;
 
     const overall = (data.report?.overall_status || "caution");
     const badgeCls = overallClass(overall);
@@ -757,40 +666,20 @@ goBtn.addEventListener("click", async ()=>{
       ${data.report?.summary ? `<div class="pre" style="margin-top:8px">${esc(data.report.summary)}</div>` : ''}
     `;
 
-    // Checks with actions
-    const checks = [].concat(data.report?.checks||[]).map(c=>({...c,_id:uid()}));
-    if(checks.length){
-      const mount = document.createElement("div");
-      mount.className = "section";
-      mount.innerHTML = `<div class="card"><h3>EU 1169/2011 Checks</h3><div class="checks" id="checks_eu"></div></div>`;
-      checksWrap.appendChild(mount);
-      $("checks_eu").innerHTML = checks.map(c=>renderCheck(c, {})).join("");
-      wireCheckActions($("checks_eu"), checks, {
-        product_name: fields.product_name, company_name: fields.company_name, country_of_sale: fields.country_of_sale,
-        score, halal_audit: !!fields.halal_audit
-      });
-    }
+    let blocks = '';
+    blocks += renderChecksBlock("EU 1169/2011 Checks", data.report?.checks);
     if(isArray(data.halal_checks) && data.halal_checks.length){
-      const halal = data.halal_checks.map(c=>({...c,_id:uid()}));
-      const mountH = document.createElement("div");
-      mountH.className = "section";
-      mountH.innerHTML = `<div class="card"><h3>Halal Pre-Audit</h3><div class="checks" id="checks_halal"></div></div>`;
-      checksWrap.appendChild(mountH);
-      $("checks_halal").innerHTML = halal.map(c=>renderCheck(c, {})).join("");
-      wireCheckActions($("checks_halal"), halal, {
-        product_name: fields.product_name, company_name: fields.company_name, country_of_sale: fields.country_of_sale,
-        score, halal_audit: !!fields.halal_audit
-      });
+      blocks += renderChecksBlock("Halal Pre-Audit", data.halal_checks);
     }
+    checksWrap.innerHTML = blocks;
 
-    // Downloads
-    const pdfReady = !!(data.pdf_len && data.pdf_len > 1000 && data.pdf_base64);
+    const pdfReady = !!(data.pdf_base64 && (data.pdf_base64.length>1000));
     downloadsCard.style.display = "flex";
     downloadsCard.innerHTML = `
       <div>
         <div style="font-weight:900">Downloads</div>
         ${pdfReady
-          ? `<div class="hint">PDF ready (${fmtKB(data.pdf_len)} KB)</div>`
+          ? `<div class="hint">PDF ready (${fmtKB((data.pdf_base64.length*3)/4)} KB)</div>`
           : `<div class="hint">PDF unavailable${data.pdf_error?' — '+esc(data.pdf_error):''}</div>`}
       </div>
       <div>
@@ -806,6 +695,27 @@ goBtn.addEventListener("click", async ()=>{
     setLoading(false);
   }
 });
+
+/* Build the structured TDS bundle to append into reference_docs_text */
+function buildTdsStructured(){
+  const get = (id)=>$(id).value?.trim()||"";
+  const t = {
+    composition: get("tds_ing"),
+    allergens: get("tds_allergens"),
+    quid: get("tds_quid"),
+    nutrition_100: get("tds_nutri"),
+    net_quantity: get("tds_netqty"),
+    storage_use: get("tds_storage"),
+    fbo_eu_address: get("tds_fbo"),
+    date_marking: get("tds_date"),
+    claims: get("tds_claims"),
+    origin: get("tds_origin"),
+    additives_aids: get("tds_additives"),
+    certifications: get("tds_certs"),
+    notes_evidence: get("tds_notes")
+  };
+  return "TDS_STRUCT:\n" + Object.entries(t).map(([k,v])=>`- ${k}: ${v}`).join("\n");
+}
 </script>
 </body>
 </html>
