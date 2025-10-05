@@ -67,8 +67,8 @@
   }
   .admin-row{display:grid;gap:8px;margin-top:8px}
   .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;border:1px solid #2b3a78;color:#cfd8ff}
-  .pill.ok{background:#093; border-color:#0a7}
-  .pill.err{background:#5a0; border-color:#b50}
+  .pill.ok{background:#093;border-color:#0a7}
+  .pill.err{background:#5a0;border-color:#b50}
 
   /* Modal */
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:50}
@@ -82,6 +82,11 @@
   table{width:100%;border-collapse:collapse}
   th,td{border-bottom:1px solid #2b3a78;padding:6px;font-size:12px;vertical-align:top}
   .tagbtn{padding:2px 8px;border-radius:999px;border:1px solid #2b3a78;background:#0f1530;color:#cfd8ff;cursor:pointer}
+
+  /* Collapsible TDS */
+  .collapser{display:flex;align-items:center;gap:10px;justify-content:space-between;margin-top:8px}
+  .collapse-content{display:none;margin-top:10px}
+  .switch{display:inline-flex;align-items:center;gap:8px}
 </style>
 </head>
 <body>
@@ -193,62 +198,71 @@
       </div>
     </div>
 
-    <!-- Structured TDS (key particulars) -->
+    <!-- Structured TDS (toggle + collapsible) -->
     <div class="card" style="margin-top:14px">
-      <h3>Structured TDS (key particulars)</h3>
-      <div class="help">These fields help the engine tally claims vs. label; you can paste quick notes; they will be bundled as "tds_struct".</div>
-      <div class="grid two" style="margin-top:8px">
-        <div>
-          <label>Composition / Ingredients (descending)</label>
-          <textarea id="tds_ing" rows="3" placeholder="Chickpea flour (60%), water, salt…"></textarea>
-        </div>
-        <div>
-          <label>Annex II Allergens (bolded in label)</label>
-          <textarea id="tds_allergens" rows="3" placeholder="Gluten; Soy; Milk; Tree nuts…"></textarea>
-        </div>
-        <div>
-          <label>QUID drivers (% near name or in list)</label>
-          <textarea id="tds_quid" rows="2" placeholder="Chickpeas 60%; Cocoa 35%; Fruit 12%…"></textarea>
-        </div>
-        <div>
-          <label>Nutrition (per 100 g/ml)</label>
-          <textarea id="tds_nutri" rows="2" placeholder="Energy 1500 kJ / 360 kcal; Fat 2.0 g…"></textarea>
-        </div>
-        <div>
-          <label>Net quantity</label>
-          <textarea id="tds_netqty" rows="2" placeholder="500 g; 1 L; ℮ symbol if used"></textarea>
-        </div>
-        <div>
-          <label>Storage / Use conditions</label>
-          <textarea id="tds_storage" rows="2" placeholder="Keep in a cool, dry place. Refrigerate after opening…"></textarea>
-        </div>
-        <div>
-          <label>FBO name & EU address</label>
-          <textarea id="tds_fbo" rows="2" placeholder="ACME Foods S.r.l., Via Roma 10, 20100 Milano, IT"></textarea>
-        </div>
-        <div>
-          <label>Date marking</label>
-          <textarea id="tds_date" rows="2" placeholder="Best before end: MM/YYYY; Use by: DD/MM/YYYY"></textarea>
-        </div>
-        <div>
-          <label>Claims (nutrition/health/marketing)</label>
-          <textarea id="tds_claims" rows="2" placeholder="High in protein; No added sugar; Source of fiber…"></textarea>
-        </div>
-        <div>
-          <label>Country of origin / Primary ingredient origin</label>
-          <textarea id="tds_origin" rows="2" placeholder="Origin: Italy; Primary ingredient: EU…"></textarea>
-        </div>
-        <div>
-          <label>Additives & processing aids</label>
-          <textarea id="tds_additives" rows="2" placeholder="E471 (plant), E322 (sunflower lecithin), enzymes…"></textarea>
-        </div>
-        <div>
-          <label>Certifications / Logos (e.g., Halal, Organic)</label>
-          <textarea id="tds_certs" rows="2" placeholder="Halal by X Certifier; EU Organic; Gluten-Free…"></textarea>
-        </div>
-        <div style="grid-column:1/-1">
-          <label>Notes / Buyer rules / Evidence</label>
-          <textarea id="tds_notes" rows="3" placeholder="Paste internal spec, buyer rules, emails, supplier letters, SDS, etc."></textarea>
+      <div class="collapser">
+        <h3 style="margin:0">Structured TDS (key particulars)</h3>
+        <label class="switch">
+          <input type="checkbox" id="tdsToggle">
+          <span>Manual TDS entry?</span>
+        </label>
+      </div>
+      <div class="help">When enabled, these fields are bundled as <b>tds_struct</b>. When disabled, the engine relies on your uploaded TDS file and/or the free-text “Extra rules”.</div>
+
+      <div id="tdsBlock" class="collapse-content">
+        <div class="grid two" style="margin-top:8px">
+          <div>
+            <label>Composition / Ingredients (descending)</label>
+            <textarea id="tds_ing" rows="3" placeholder="Chickpea flour (60%), water, salt…"></textarea>
+          </div>
+          <div>
+            <label>Annex II Allergens (bolded in label)</label>
+            <textarea id="tds_allergens" rows="3" placeholder="Gluten; Soy; Milk; Tree nuts…"></textarea>
+          </div>
+          <div>
+            <label>QUID drivers (% near name or in list)</label>
+            <textarea id="tds_quid" rows="2" placeholder="Chickpeas 60%; Cocoa 35%; Fruit 12%…"></textarea>
+          </div>
+          <div>
+            <label>Nutrition (per 100 g/ml)</label>
+            <textarea id="tds_nutri" rows="2" placeholder="Energy 1500 kJ / 360 kcal; Fat 2.0 g…"></textarea>
+          </div>
+          <div>
+            <label>Net quantity</label>
+            <textarea id="tds_netqty" rows="2" placeholder="500 g; 1 L; ℮ symbol if used"></textarea>
+          </div>
+          <div>
+            <label>Storage / Use conditions</label>
+            <textarea id="tds_storage" rows="2" placeholder="Keep in a cool, dry place. Refrigerate after opening…"></textarea>
+          </div>
+          <div>
+            <label>FBO name & EU address</label>
+            <textarea id="tds_fbo" rows="2" placeholder="ACME Foods S.r.l., Via Roma 10, 20100 Milano, IT"></textarea>
+          </div>
+          <div>
+            <label>Date marking</label>
+            <textarea id="tds_date" rows="2" placeholder="Best before end: MM/YYYY; Use by: DD/MM/YYYY"></textarea>
+          </div>
+          <div>
+            <label>Claims (nutrition/health/marketing)</label>
+            <textarea id="tds_claims" rows="2" placeholder="High in protein; No added sugar; Source of fiber…"></textarea>
+          </div>
+          <div>
+            <label>Country of origin / Primary ingredient origin</label>
+            <textarea id="tds_origin" rows="2" placeholder="Origin: Italy; Primary ingredient: EU…"></textarea>
+          </div>
+          <div>
+            <label>Additives & processing aids</label>
+            <textarea id="tds_additives" rows="2" placeholder="E471 (plant), E322 (sunflower lecithin), enzymes…"></textarea>
+          </div>
+          <div>
+            <label>Certifications / Logos (e.g., Halal, Organic)</label>
+            <textarea id="tds_certs" rows="2" placeholder="Halal by X Certifier; EU Organic; Gluten-Free…"></textarea>
+          </div>
+          <div style="grid-column:1/-1">
+            <label>Notes / Buyer rules / Evidence</label>
+            <textarea id="tds_notes" rows="3" placeholder="Paste internal spec, buyer rules, emails, supplier letters, SDS, etc."></textarea>
+          </div>
         </div>
       </div>
     </div>
@@ -267,9 +281,13 @@
         <input id="consent_chk" type="checkbox" style="width:18px;height:18px;margin:0 8px 0 4px">
         <div>
           <div style="font-weight:700">I consent to processing & secure storage</div>
-          <div class="help">I agree that Nexodify may process and securely store my files and metadata for quality improvement and auditability. Data controller: Nexodify. Retention: kept indefinitely (delete on request). No sale to third parties.</div>
+          <div class="help">
+            I agree that Nexodify may process and securely store my files and metadata for quality improvement and auditability.
+            Data controller: Nexodify. Retention: kept indefinitely (delete on request). No sale to third parties.
+          </div>
         </div>
       </div>
+
       <div class="row" style="grid-template-columns:auto 1fr;align-items:center">
         <input id="halal_audit" type="checkbox" style="width:18px;height:18px;margin:0 8px 0 4px">
         <div>
@@ -277,6 +295,7 @@
           <div class="help">Adds checks for forbidden ingredients, carriers/solvents, logo/issuer, segregation.</div>
         </div>
       </div>
+
       <div class="toolbar">
         <button class="btn secondary" id="resetBtn" type="button">Reset</button>
         <button class="btn" id="goBtn">Generate Preflight</button>
@@ -323,6 +342,10 @@ function overallClass(s){ s=(s||"caution").toLowerCase(); return s==="pass"?"pas
 function toDataURL(file){ return new Promise((resolve,reject)=>{const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=reject; r.readAsDataURL(file);});}
 
 /* ------------------ Admin: key storage & ping ------------------ */
+/* Force admin logout on every refresh */
+sessionStorage.removeItem("admin_ok");
+sessionStorage.removeItem("admin_key");
+
 const adminBtn = $("adminBtn");
 const adminPanel = $("adminPanel");
 const adminStatus = $("adminStatus");
@@ -333,7 +356,6 @@ const saveKey = $("saveKey");
 const cancelKey = $("cancelKey");
 const adminDay = $("adminDay");
 const basketCard = $("basketCard");
-
 adminDay.value = today();
 
 function getAdminKey(){ return sessionStorage.getItem("admin_key") || ""; }
@@ -352,7 +374,6 @@ async function pingAdmin(){
     adminStatus.textContent="Forbidden"; adminStatus.className="pill err"; setAdminAuth(false); return false;
   }catch(e){ adminStatus.textContent="Error"; adminStatus.className="pill err"; setAdminAuth(false); return false; }
 }
-if (adminAuthenticated()) basketCard.style.display="block";
 
 adminBtn.addEventListener("click", async ()=>{
   if(getAdminKey()){
@@ -440,6 +461,14 @@ function wireDrop(zone,input,meta){
 }
 wireDrop(labelDrop,labelInput,labelMeta);
 wireDrop(tdsDrop,tdsInput,tdsMeta);
+
+/* ------------------ Collapsible structured TDS ------------------ */
+const tdsToggle = $("tdsToggle");
+const tdsBlock = $("tdsBlock");
+tdsToggle.addEventListener("change",()=>{
+  tdsBlock.style.display = tdsToggle.checked ? "block" : "none";
+});
+tdsBlock.style.display = "none"; // default collapsed
 
 /* ------------------ Render helpers ------------------ */
 function renderCheck(c, idx){
@@ -554,9 +583,10 @@ document.addEventListener("click",(e)=>{
     const txt = document.querySelector(`.corr-text[data-idx="${idx}"]`)?.value?.trim()||"";
     const rat = document.querySelector(`.corr-rationale[data-idx="${idx}"]`)?.value?.trim()||"";
     const man = document.querySelector(`.corr-mand[data-idx="${idx}"]`)?.checked||false;
-    const tagBtn = document.querySelector(`.tagbtn[data-idx="${idx}"][data-tag].last-tagged`);
-    const tag = tagBtn?.dataset?.tag || "all";
-
+    // choose last selected tag for this idx; default all
+    let tag="all";
+    const tagBtns = document.querySelectorAll(`.tagbtn[data-idx="${idx}"]`);
+    tagBtns.forEach(b=>{ if(b.classList.contains('last-tagged')) tag = b.dataset.tag; });
     const chk = lastResponseReport?.checks?.[idx] || {};
     const row = {
       ts_iso: new Date().toISOString(),
@@ -577,7 +607,6 @@ document.addEventListener("click",(e)=>{
     alert("Added to dataset basket.");
   }
   if(t.classList.contains("tagbtn")){
-    // mark the last tagged for this idx
     const idx = t.dataset.idx;
     document.querySelectorAll(`.tagbtn[data-idx="${idx}"]`).forEach(b=>b.classList.remove("last-tagged"));
     t.classList.add("last-tagged");
@@ -589,7 +618,8 @@ function resetAll(){
   [productName, companyName, companyEmail, countrySale, languagesProvided].forEach(el=>el.value="");
   productCategory.selectedIndex = 0; shippingScope.selectedIndex=0; halalToggle.checked=false; extraRules.value="";
   ["tds_ing","tds_allergens","tds_quid","tds_nutri","tds_netqty","tds_storage","tds_fbo","tds_date","tds_claims","tds_origin","tds_additives","tds_certs","tds_notes"]
-    .forEach(id=>$(id).value="");
+    .forEach(id=>{ const el=$(id); if(el) el.value=""; });
+  tdsToggle.checked=false; tdsBlock.style.display="none";
   consentChk.checked = false;
   labelInput.value=""; tdsInput.value=""; labelMeta.textContent="No file chosen."; tdsMeta.textContent="No file chosen.";
   results.style.display="none"; summaryCard.innerHTML=""; checksWrap.innerHTML=""; downloadsCard.style.display="none"; downloadsCard.innerHTML="";
@@ -597,8 +627,6 @@ function resetAll(){
 resetBtn.addEventListener("click", resetAll);
 
 let lastResponseReport=null, lastHalalOn=false;
-
-function setLoading(b){ goBtn.disabled=b; goBtn.textContent=b?"Generating…":"Generate Preflight"; }
 
 goBtn.addEventListener("click", async ()=>{
   try{
@@ -612,19 +640,27 @@ goBtn.addEventListener("click", async ()=>{
     summaryCard.innerHTML = '<div class="pre">Running…</div>';
     checksWrap.innerHTML=""; downloadsCard.style.display="none"; downloadsCard.innerHTML="";
 
+    // Build request payload
     const fields = {
       product_name: productName.value.trim(),
       company_name: companyName.value.trim(),
-      company_email: companyEmail.value.trim(),
+      company_email: companyEmail.value.trim(), // server handles multi
       country_of_sale: countrySale.value.trim(),
       languages_provided: (languagesProvided.value||"").split(/[,;]\s*|,\s*|\s*,\s*/).map(s=>s.trim()).filter(Boolean),
       shipping_scope: shippingScope.value,
       product_category: productCategory.value,
-      reference_docs_text: buildTdsStructured() + "\n\n" + (extraRules.value||""),
+      reference_docs_text: extraRules.value || "",
       halal_audit: halalToggle.checked
     };
     lastHalalOn = fields.halal_audit;
 
+    // If manual TDS is enabled, append tds_struct
+    if (tdsToggle.checked) {
+      fields.reference_docs_text =
+        buildTdsStructured() + (fields.reference_docs_text ? ("\n\n" + fields.reference_docs_text) : "");
+    }
+
+    // Attach files
     if(labelInput.files[0]){
       const lf = labelInput.files[0];
       const b64 = await toDataURL(lf);
@@ -636,6 +672,7 @@ goBtn.addEventListener("click", async ()=>{
       fields.tds_file = { name: tf.name, base64: await toDataURL(tf) };
     }
 
+    // Call API
     const resp = await fetch(`${API_BASE}/api/check-label`, {
       method:"POST",
       headers:{ "Content-Type":"application/json" },
@@ -650,6 +687,7 @@ goBtn.addEventListener("click", async ()=>{
     const score = data.score ?? data.report?.score ?? "-";
     const prod = data.report?.product || {};
 
+    // Summary
     summaryCard.innerHTML = `
       <div class="chips">
         <span class="badge ${badgeCls}">${esc(overall.toUpperCase())}</span>
@@ -666,6 +704,7 @@ goBtn.addEventListener("click", async ()=>{
       ${data.report?.summary ? `<div class="pre" style="margin-top:8px">${esc(data.report.summary)}</div>` : ''}
     `;
 
+    // Checks
     let blocks = '';
     blocks += renderChecksBlock("EU 1169/2011 Checks", data.report?.checks);
     if(isArray(data.halal_checks) && data.halal_checks.length){
@@ -673,6 +712,7 @@ goBtn.addEventListener("click", async ()=>{
     }
     checksWrap.innerHTML = blocks;
 
+    // Downloads
     const pdfReady = !!(data.pdf_base64 && (data.pdf_base64.length>1000));
     downloadsCard.style.display = "flex";
     downloadsCard.innerHTML = `
@@ -696,7 +736,7 @@ goBtn.addEventListener("click", async ()=>{
   }
 });
 
-/* Build the structured TDS bundle to append into reference_docs_text */
+/* Build the structured TDS bundle */
 function buildTdsStructured(){
   const get = (id)=>$(id).value?.trim()||"";
   const t = {
